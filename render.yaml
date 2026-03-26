@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: anee-booking-tool
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install && npm run prisma:generate && npm run build
+    startCommand: npm run prisma:deploy && npm run start -- --hostname 0.0.0.0 --port $PORT
+    disk:
+      name: anee-storage
+      mountPath: /opt/render/project/src/storage
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/opt/render/project/src/storage/render.db
+      - key: STORAGE_ROOT
+        value: /opt/render/project/src/storage
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: MARKETING_SITE_URL
+        value: https://amboies.com/
+      - key: APP_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DEFAULT_ADMIN_NAME
+        value: Lab Admin
+      - key: DEFAULT_ADMIN_EMAIL
+        sync: false
+      - key: DEFAULT_ADMIN_PASSWORD
+        sync: false

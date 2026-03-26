@@ -1,0 +1,16 @@
+.next
+node_modules
+*.log
+.DS_Store
+.env
+.env.local
+.env.production
+.env.development
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+prisma/*.db-journal
+storage/*.db
+storage/*.sqlite
+storage/manuals/*
+!storage/manuals/.gitkeep

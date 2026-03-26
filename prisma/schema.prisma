@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum InstrumentStatus {
+  AVAILABLE
+  MAINTENANCE
+  OFFLINE
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  name               String
+  email              String             @unique
+  passwordHash       String
+  role               Role               @default(MEMBER)
+  reservations       Reservation[]
+  maintenanceEntries MaintenanceEntry[] @relation("MaintenancePerformedBy")
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+model Instrument {
+  id                 String             @id @default(cuid())
+  name               String             @unique
+  location           String
+  description        String
+  status             InstrumentStatus   @default(AVAILABLE)
+  manuals            Manual[]
+  maintenanceEntries MaintenanceEntry[]
+  reservations       Reservation[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+model Manual {
+  id           String     @id @default(cuid())
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  originalName String
+  storedName   String
+  mimeType     String
+  filePath     String
+  uploadedAt   DateTime   @default(now())
+}
+
+model MaintenanceEntry {
+  id            String     @id @default(cuid())
+  instrumentId  String
+  instrument    Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  performedById String?
+  performedBy   User?      @relation("MaintenancePerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
+  performedAt   DateTime
+  summary       String
+  status        String
+  notes         String?
+  createdAt     DateTime   @default(now())
+}
+
+model Reservation {
+  id           String     @id @default(cuid())
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startAt      DateTime
+  endAt        DateTime
+  purpose      String?
+  createdAt    DateTime   @default(now())
+
+  @@index([instrumentId, startAt, endAt])
+}
