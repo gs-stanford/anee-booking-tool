@@ -4,15 +4,13 @@ services:
     runtime: node
     plan: starter
     region: oregon
-    buildCommand: npm install && npm run prisma:generate && npm run build
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
     startCommand: npm run prisma:deploy && npm run start -- --hostname 0.0.0.0 --port $PORT
     disk:
       name: anee-storage
       mountPath: /opt/render/project/src/storage
       sizeGB: 1
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: DATABASE_URL
         value: file:/opt/render/project/src/storage/render.db
       - key: STORAGE_ROOT

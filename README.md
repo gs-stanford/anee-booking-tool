@@ -77,6 +77,7 @@ The blueprint uses:
 - `DATABASE_URL=file:/opt/render/project/src/storage/render.db`
 - `STORAGE_ROOT=/opt/render/project/src/storage`
 - a persistent disk mounted at `/opt/render/project/src/storage`
+- `npm install --include=dev` during the Render build so Next.js type-checking has TypeScript and `@types/*` packages available
 
 Suggested Render flow:
 
