@@ -39,6 +39,17 @@ const userSchema = z.object({
   role: z.nativeEnum(Role)
 });
 
+const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(8),
+    confirmPassword: z.string().min(8)
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"]
+  });
+
 const instrumentSchema = z.object({
   name: z.string().trim().min(2),
   location: z.string().trim().min(2),
@@ -163,6 +174,99 @@ export async function createUserAction(formData: FormData) {
 
   revalidatePath("/admin/users");
   redirect(withNotice("/admin/users", "success", "User created."));
+}
+
+export async function deleteUserAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+
+  if (!userId) {
+    redirect(withNotice("/admin/users", "error", "User details were missing."));
+  }
+
+  if (userId === admin.id) {
+    redirect(withNotice("/admin/users", "error", "You cannot delete your own account."));
+  }
+
+  const user = await db.user.findUnique({
+    where: {
+      id: userId
+    },
+    select: {
+      id: true,
+      role: true,
+      name: true
+    }
+  });
+
+  if (!user) {
+    redirect(withNotice("/admin/users", "error", "User not found."));
+  }
+
+  if (user.role === Role.ADMIN) {
+    const adminCount = await db.user.count({
+      where: {
+        role: Role.ADMIN
+      }
+    });
+
+    if (adminCount <= 1) {
+      redirect(withNotice("/admin/users", "error", "You must keep at least one admin account."));
+    }
+  }
+
+  await db.user.delete({
+    where: {
+      id: userId
+    }
+  });
+
+  revalidatePath("/admin/users");
+  redirect(withNotice("/admin/users", "success", `Deleted ${user.name}.`));
+}
+
+export async function changePasswordAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = getReturnTo(formData, "/account");
+
+  const parsed = passwordChangeSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword")
+  });
+
+  if (!parsed.success) {
+    redirect(withNotice(returnTo, "error", "Please complete the password form correctly."));
+  }
+
+  const existingUser = await db.user.findUnique({
+    where: {
+      id: user.id
+    }
+  });
+
+  if (!existingUser) {
+    redirect(withNotice("/login", "error", "Your account could not be found."));
+  }
+
+  const matches = await bcrypt.compare(parsed.data.currentPassword, existingUser.passwordHash);
+
+  if (!matches) {
+    redirect(withNotice(returnTo, "error", "Current password is incorrect."));
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+
+  await db.user.update({
+    where: {
+      id: user.id
+    },
+    data: {
+      passwordHash
+    }
+  });
+
+  redirect(withNotice(returnTo, "success", "Password updated."));
 }
 
 export async function createInstrumentAction(formData: FormData) {

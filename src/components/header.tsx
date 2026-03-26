@@ -21,6 +21,7 @@ export function Header({ user, labName, marketingUrl }: HeaderProps) {
       <nav className="header-nav">
         <Link href={marketingUrl}>Home</Link>
         <Link href="/instruments">Instruments</Link>
+        {user ? <Link href="/account">Account</Link> : null}
         {user?.role === Role.ADMIN ? <Link href="/admin/users">Users</Link> : null}
         {user ? (
           <form action={logoutAction}>

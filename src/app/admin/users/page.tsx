@@ -1,6 +1,6 @@
 import { Role } from "@prisma/client";
 
-import { createUserAction } from "@/app/actions";
+import { createUserAction, deleteUserAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -13,7 +13,7 @@ export default async function AdminUsersPage({
 }: {
   searchParams?: SearchParams | Promise<SearchParams>;
 }) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const [users, notice] = await Promise.all([
     db.user.findMany({
       orderBy: {
@@ -67,11 +67,25 @@ export default async function AdminUsersPage({
         <div className="list">
           {users.map((user) => (
             <div className="sheet-row" key={user.id}>
-              <h4>{user.name}</h4>
-              <div className="meta">
-                <span>{user.email}</span>
-                <span>{user.role}</span>
-                <span>Created {user.createdAt.toLocaleDateString("en-US")}</span>
+              <div className="section-head">
+                <div>
+                  <h4>{user.name}</h4>
+                  <div className="meta">
+                    <span>{user.email}</span>
+                    <span>{user.role}</span>
+                    <span>Created {user.createdAt.toLocaleDateString("en-US")}</span>
+                  </div>
+                </div>
+                {user.id !== admin.id ? (
+                  <form action={deleteUserAction}>
+                    <input type="hidden" name="userId" value={user.id} />
+                    <button className="button button-ghost button-small" type="submit">
+                      Delete user
+                    </button>
+                  </form>
+                ) : (
+                  <span className="tag">Current admin</span>
+                )}
               </div>
             </div>
           ))}
