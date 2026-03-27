@@ -116,13 +116,14 @@ async function removeFileIfPresent(filePath: string) {
 }
 
 export async function loginAction(formData: FormData) {
+  const returnTo = getReturnTo(formData, "/instruments");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
   const user = await authenticateUser(email, password);
 
   if (!user) {
-    redirect(withNotice("/login", "error", "Incorrect email or password."));
+    redirect(withNotice(`/login?returnTo=${encodeURIComponent(returnTo)}`, "error", "Incorrect email or password."));
   }
 
   await createSession({
@@ -132,7 +133,7 @@ export async function loginAction(formData: FormData) {
     email: user.email
   });
 
-  redirect("/instruments");
+  redirect(returnTo);
 }
 
 export async function logoutAction() {

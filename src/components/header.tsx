@@ -15,6 +15,8 @@ type HeaderProps = {
 };
 
 export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
+  const inventoryLoginHref =
+    "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20inventory%20spreadsheets.";
   const inventoryLinks = [
     {
       label: "Gas Cylinders",
@@ -45,22 +47,28 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
         <Link className="nav-link" href="/instruments">
           Instruments
         </Link>
-        <div className="nav-dropdown" tabIndex={0}>
-          <span className="nav-link nav-dropdown-trigger">Inventory</span>
-          <div className="nav-dropdown-menu">
-            {inventoryLinks.map((item) => (
-              <a
-                className="nav-dropdown-item"
-                href={item.href}
-                key={item.label}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {item.label}
-              </a>
-            ))}
+        {user ? (
+          <div className="nav-dropdown" tabIndex={0}>
+            <span className="nav-link nav-dropdown-trigger">Inventory</span>
+            <div className="nav-dropdown-menu">
+              {inventoryLinks.map((item) => (
+                <a
+                  className="nav-dropdown-item"
+                  href={item.href}
+                  key={item.label}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <Link className="nav-link" href={inventoryLoginHref}>
+            Inventory
+          </Link>
+        )}
         {user ? (
           <Link className="nav-link" href="/account">
             Account

@@ -1,7 +1,7 @@
 import { loginAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { getCurrentUser } from "@/lib/auth";
-import { getNotice } from "@/lib/utils";
+import { getNotice, getSingleParam } from "@/lib/utils";
 import { redirect } from "next/navigation";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -12,12 +12,14 @@ export default async function LoginPage({
   searchParams?: SearchParams | Promise<SearchParams>;
 }) {
   const user = await getCurrentUser();
+  const resolvedSearchParams = await searchParams;
+  const returnTo = getSingleParam(resolvedSearchParams, "returnTo") ?? "/instruments";
 
   if (user) {
-    redirect("/instruments");
+    redirect(returnTo);
   }
 
-  const notice = getNotice(await searchParams);
+  const notice = getNotice(resolvedSearchParams);
 
   return (
     <section className="auth-card">
@@ -26,6 +28,7 @@ export default async function LoginPage({
       {notice ? <Notice type={notice.type} message={notice.message} /> : null}
 
       <form action={loginAction} className="form-grid">
+        <input name="returnTo" type="hidden" value={returnTo} />
         <div className="field">
           <label htmlFor="email">Email</label>
           <input id="email" name="email" type="email" placeholder="name@lab.local" required />

@@ -105,6 +105,8 @@ h4 {
   margin: 0 auto 28px;
   padding: 18px 24px;
   border-radius: var(--radius-xl);
+  position: relative;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   gap: 24px;
@@ -211,7 +213,7 @@ h4 {
   position: absolute;
   top: calc(100% + 12px);
   left: 0;
-  z-index: 20;
+  z-index: 40;
   min-width: 220px;
   display: grid;
   gap: 4px;
