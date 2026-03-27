@@ -114,10 +114,9 @@ h4 {
 }
 
 .brand-lockup {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
+  display: grid;
+  gap: 4px;
+  flex: 0 1 auto;
 }
 
 .anee-mark {
@@ -148,25 +147,8 @@ h4 {
   letter-spacing: 0.12em;
 }
 
-.brand-meta {
-  display: grid;
-  gap: 10px;
-}
-
-.brand-copy,
 .muted {
   color: var(--muted);
-}
-
-.brand-copy {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.brand-partner-mark {
-  display: block;
-  object-fit: contain;
-  opacity: 0.92;
 }
 
 .header-nav {
