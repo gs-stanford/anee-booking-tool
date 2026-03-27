@@ -16,6 +16,7 @@ import {
   requireUser
 } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseLabDateTime } from "@/lib/lab-time";
 import { getManualsRoot } from "@/lib/storage";
 
 function withNotice(target: string, type: "success" | "error", message: string) {
@@ -450,8 +451,8 @@ export async function createReservationAction(formData: FormData) {
     redirect(withNotice(returnTo, "error", "Please complete the reservation form."));
   }
 
-  const startAt = new Date(`${parsed.data.date}T${parsed.data.startTime}:00`);
-  const endAt = new Date(`${parsed.data.date}T${parsed.data.endTime}:00`);
+  const startAt = parseLabDateTime(parsed.data.date, parsed.data.startTime);
+  const endAt = parseLabDateTime(parsed.data.date, parsed.data.endTime);
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || startAt >= endAt) {
     redirect(withNotice(returnTo, "error", "Choose a valid time range."));
@@ -506,8 +507,8 @@ export async function updateReservationAction(formData: FormData) {
     redirect(withNotice(returnTo, "error", "You do not have permission to edit that reservation."));
   }
 
-  const startAt = new Date(`${parsed.data.date}T${parsed.data.startTime}:00`);
-  const endAt = new Date(`${parsed.data.date}T${parsed.data.endTime}:00`);
+  const startAt = parseLabDateTime(parsed.data.date, parsed.data.startTime);
+  const endAt = parseLabDateTime(parsed.data.date, parsed.data.endTime);
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || startAt >= endAt) {
     redirect(withNotice(returnTo, "error", "Choose a valid time range."));

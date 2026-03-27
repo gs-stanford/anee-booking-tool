@@ -79,10 +79,16 @@ function slotToTime(slotIndex: number) {
 function reservationToSelection(startAt: Date, endAt: Date): SelectionState {
   const startMinutes = startAt.getHours() * 60 + startAt.getMinutes();
   const endMinutes = endAt.getHours() * 60 + endAt.getMinutes();
+  const startSlot = Math.max(0, Math.floor((startMinutes - START_HOUR * 60) / SLOT_MINUTES));
+  const endSlot = Math.max(
+    startSlot + 1,
+    Math.min(TOTAL_SLOTS, Math.ceil((endMinutes - START_HOUR * 60) / SLOT_MINUTES))
+  );
+
   return {
     date: toDateInputValue(startAt),
-    startSlot: Math.max(0, Math.floor((startMinutes - START_HOUR * 60) / SLOT_MINUTES)),
-    endSlot: Math.min(TOTAL_SLOTS, Math.ceil((endMinutes - START_HOUR * 60) / SLOT_MINUTES))
+    startSlot,
+    endSlot
   };
 }
 
@@ -182,11 +188,8 @@ export function BookingCalendar({
     selectionAnchor.current = { date, slotIndex };
     setPointerSelecting(true);
     setSelectionSource("grid");
-
-    if (!activeReservationEditable) {
-      setActiveReservationId("");
-      setPurpose("");
-    }
+    setActiveReservationId("");
+    setPurpose("");
 
     updateSelectionFromSlot(date, slotIndex);
   }
@@ -368,9 +371,11 @@ export function BookingCalendar({
                 Drag directly on the calendar to choose the block. No manual time entry needed.
               </p>
             </div>
-            <button className="button button-ghost button-small" onClick={handleNewReservation} type="button">
-              New block
-            </button>
+            {activeReservationId ? (
+              <button className="button button-ghost button-small" onClick={handleNewReservation} type="button">
+                Start fresh
+              </button>
+            ) : null}
           </div>
 
           <div className="selection-summary">

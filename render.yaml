@@ -19,6 +19,8 @@ services:
         value: "true"
       - key: MARKETING_SITE_URL
         value: https://amboies.com/
+      - key: LAB_TIMEZONE
+        value: America/Los_Angeles
       - key: APP_URL
         sync: false
       - key: SESSION_SECRET
