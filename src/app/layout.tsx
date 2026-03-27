@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
 const labName = process.env.LAB_NAME ?? "Lab Internal Tool";
+const appUrl = process.env.APP_URL ?? "/";
 const marketingUrl = process.env.MARKETING_SITE_URL ?? "/";
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
@@ -35,7 +36,7 @@ export default async function RootLayout({
     <html lang="en">
       <body className={`${sourceSans.variable} ${sourceSerif.variable}`}>
         <div className="page-shell">
-          <Header user={user} labName={labName} marketingUrl={marketingUrl} />
+          <Header user={user} labName={labName} appUrl={appUrl} marketingUrl={marketingUrl} />
           <main className="page-content">{children}</main>
         </div>
       </body>

@@ -44,14 +44,15 @@ type SelectionState = {
   endSlot: number;
 };
 
-const START_HOUR = 7;
-const END_HOUR = 21;
+const START_HOUR = 6;
+const END_HOUR = 24;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 44;
 const PIXELS_PER_HOUR = SLOT_HEIGHT * 2;
 const DEFAULT_START_SLOT = 4;
 const DEFAULT_END_SLOT = 6;
 const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
+const VISIBLE_DAYS = 7;
 
 function startOfDay(date: Date) {
   const copy = new Date(date);
@@ -74,6 +75,13 @@ function slotToTime(slotIndex: number) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function selectionSlotToDate(date: string, slotIndex: number) {
+  const [year, month, day] = date.split("-").map((value) => Number(value));
+  const result = new Date(year, month - 1, day, START_HOUR, 0, 0, 0);
+  result.setMinutes(result.getMinutes() + slotIndex * SLOT_MINUTES);
+  return result;
 }
 
 function reservationToSelection(startAt: Date, endAt: Date): SelectionState {
@@ -125,9 +133,9 @@ export function BookingCalendar({
     endAtDate: new Date(reservation.endAt)
   }));
 
-  const days = Array.from({ length: 7 }, (_, index) => addDays(new Date(weekStart), index));
+  const days = Array.from({ length: VISIBLE_DAYS }, (_, index) => addDays(new Date(weekStart), index));
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, index) => START_HOUR + index);
-  const weekEnd = addDays(new Date(weekStart), 6);
+  const weekEnd = addDays(new Date(weekStart), VISIBLE_DAYS - 1);
   const initialReservation =
     parsedReservations.find((reservation) => reservation.id === selectedReservationId) ??
     parsedUpcomingReservations.find((reservation) => reservation.id === selectedReservationId) ??
@@ -224,8 +232,8 @@ export function BookingCalendar({
     setSelectionSource("grid");
   }
 
-  const selectionStartDate = new Date(`${selection.date}T${slotToTime(selection.startSlot)}:00`);
-  const selectionEndDate = new Date(`${selection.date}T${slotToTime(selection.endSlot)}:00`);
+  const selectionStartDate = selectionSlotToDate(selection.date, selection.startSlot);
+  const selectionEndDate = selectionSlotToDate(selection.date, selection.endSlot);
   const canSubmit = selectionSource === "grid" || activeReservationEditable;
   const returnTo = activeReservationEditable && activeReservation
     ? `/instruments/${instrumentId}?week=${weekOffset}&composeDate=${selection.date}&reservationId=${activeReservation.id}`

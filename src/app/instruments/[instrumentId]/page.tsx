@@ -139,59 +139,11 @@ export default async function InstrumentDetailPage({
         {notice ? <Notice type={notice.type} message={notice.message} /> : null}
       </section>
 
-      <div className="instrument-workspace" style={{ gridColumn: "1 / -1" }}>
-      <section className="panel manuals-panel">
-        <div className="section-head">
-          <div>
-            <h2>Manuals</h2>
-            <p className="muted">Store instrument manuals as downloadable files tied directly to this instrument.</p>
-          </div>
-        </div>
-
-        <div className="list" style={{ marginBottom: 18 }}>
-          {instrument.manuals.length === 0 ? (
-            <p className="muted">No manual uploaded yet.</p>
-          ) : (
-            instrument.manuals.map((manual) => (
-              <div className="sheet-row" key={manual.id}>
-                <div className="section-head">
-                  <a href={`/api/manuals/${manual.id}`}>
-                    <h4>{manual.originalName}</h4>
-                  </a>
-                  <form action={deleteManualAction}>
-                    <input type="hidden" name="instrumentId" value={instrument.id} />
-                    <input type="hidden" name="manualId" value={manual.id} />
-                    <button className="button button-ghost button-small" type="submit">
-                      Remove file
-                    </button>
-                  </form>
-                </div>
-                <div className="meta">
-                  <span>Uploaded {formatDateTime(manual.uploadedAt)}</span>
-                  <a href={`/api/manuals/${manual.id}`}>Download</a>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <form action={uploadManualAction} className="form-grid">
-          <input type="hidden" name="instrumentId" value={instrument.id} />
-          <div className="field">
-            <label htmlFor="manual">Upload manual</label>
-            <input id="manual" name="manual" type="file" accept=".pdf,.doc,.docx" required />
-          </div>
-          <button className="button button-secondary" type="submit">
-            Save manual
-          </button>
-        </form>
-      </section>
-
-      <section className="panel booking-panel">
+      <section className="panel booking-panel" style={{ gridColumn: "1 / -1" }}>
         <div className="section-head">
           <div>
             <h2>Reservation calendar</h2>
-            <p className="muted">The calendar now owns the workflow: drag to select time blocks, then submit the reservation inline.</p>
+            <p className="muted">The calendar now owns the workflow: drag to select time blocks, then submit the reservation inline. The shared week view now includes weekend booking too.</p>
           </div>
         </div>
 
@@ -229,79 +181,127 @@ export default async function InstrumentDetailPage({
           weekStart={weekStart.toISOString()}
         />
       </section>
-      </div>
 
-      <section className="panel" style={{ gridColumn: "1 / -1" }}>
-        <div className="section-head">
-          <div>
-            <h2>Maintenance sheet</h2>
-            <p className="muted">
-              This replaces the uploaded Excel concept with a live, always-loaded table for maintenance history.
-            </p>
+      <div className="instrument-support-grid" style={{ gridColumn: "1 / -1" }}>
+        <section className="panel">
+          <div className="section-head">
+            <div>
+              <h2>Maintenance sheet</h2>
+              <p className="muted">
+                This replaces the uploaded Excel concept with a live, always-loaded table for maintenance history.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Performed by</th>
-                <th>Status</th>
-                <th>Summary</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {instrument.maintenanceEntries.length === 0 ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={5} className="muted">
-                    No maintenance entries have been logged yet.
-                  </td>
+                  <th>Date</th>
+                  <th>Performed by</th>
+                  <th>Status</th>
+                  <th>Summary</th>
+                  <th>Notes</th>
                 </tr>
-              ) : (
-                instrument.maintenanceEntries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td>{formatDate(entry.performedAt)}</td>
-                    <td>{entry.performedBy?.name ?? "Unassigned"}</td>
-                    <td>{entry.status}</td>
-                    <td>{entry.summary}</td>
-                    <td>{entry.notes ?? "N/A"}</td>
+              </thead>
+              <tbody>
+                {instrument.maintenanceEntries.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="muted">
+                      No maintenance entries have been logged yet.
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  instrument.maintenanceEntries.map((entry) => (
+                    <tr key={entry.id}>
+                      <td>{formatDate(entry.performedAt)}</td>
+                      <td>{entry.performedBy?.name ?? "Unassigned"}</td>
+                      <td>{entry.status}</td>
+                      <td>{entry.summary}</td>
+                      <td>{entry.notes ?? "N/A"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <form action={addMaintenanceEntryAction} className="form-grid" style={{ marginTop: 20 }}>
-          <input type="hidden" name="instrumentId" value={instrument.id} />
-          <div className="form-grid two-up">
-            <div className="field">
-              <label htmlFor="performedAt">Maintenance date</label>
-              <input id="performedAt" name="performedAt" type="date" required />
+          <form action={addMaintenanceEntryAction} className="form-grid" style={{ marginTop: 20 }}>
+            <input type="hidden" name="instrumentId" value={instrument.id} />
+            <div className="form-grid two-up">
+              <div className="field">
+                <label htmlFor="performedAt">Maintenance date</label>
+                <input id="performedAt" name="performedAt" type="date" required />
+              </div>
+              <div className="field">
+                <label htmlFor="status">Status</label>
+                <input id="status" name="status" placeholder="Passed calibration" required />
+              </div>
             </div>
+
             <div className="field">
-              <label htmlFor="status">Status</label>
-              <input id="status" name="status" placeholder="Passed calibration" required />
+              <label htmlFor="summary">Summary</label>
+              <input id="summary" name="summary" placeholder="Quarterly alignment and optics cleaning" required />
+            </div>
+
+            <div className="field">
+              <label htmlFor="notes">Notes</label>
+              <textarea id="notes" name="notes" placeholder="Optional details, part replacements, or follow-up actions." />
+            </div>
+
+            <button className="button button-secondary" type="submit">
+              Add maintenance row
+            </button>
+          </form>
+        </section>
+
+        <section className="panel manuals-panel">
+          <div className="section-head">
+            <div>
+              <h2>Manuals</h2>
+              <p className="muted">Store instrument manuals as downloadable files tied directly to this instrument.</p>
             </div>
           </div>
 
-          <div className="field">
-            <label htmlFor="summary">Summary</label>
-            <input id="summary" name="summary" placeholder="Quarterly alignment and optics cleaning" required />
+          <div className="list" style={{ marginBottom: 18 }}>
+            {instrument.manuals.length === 0 ? (
+              <p className="muted">No manual uploaded yet.</p>
+            ) : (
+              instrument.manuals.map((manual) => (
+                <div className="sheet-row" key={manual.id}>
+                  <div className="section-head">
+                    <a href={`/api/manuals/${manual.id}`}>
+                      <h4>{manual.originalName}</h4>
+                    </a>
+                    <form action={deleteManualAction}>
+                      <input type="hidden" name="instrumentId" value={instrument.id} />
+                      <input type="hidden" name="manualId" value={manual.id} />
+                      <button className="button button-ghost button-small" type="submit">
+                        Remove file
+                      </button>
+                    </form>
+                  </div>
+                  <div className="meta">
+                    <span>Uploaded {formatDateTime(manual.uploadedAt)}</span>
+                    <a href={`/api/manuals/${manual.id}`}>Download</a>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
-          <div className="field">
-            <label htmlFor="notes">Notes</label>
-            <textarea id="notes" name="notes" placeholder="Optional details, part replacements, or follow-up actions." />
-          </div>
-
-          <button className="button button-secondary" type="submit">
-            Add maintenance row
-          </button>
-        </form>
-      </section>
+          <form action={uploadManualAction} className="form-grid">
+            <input type="hidden" name="instrumentId" value={instrument.id} />
+            <div className="field">
+              <label htmlFor="manual">Upload manual</label>
+              <input id="manual" name="manual" type="file" accept=".pdf,.doc,.docx" required />
+            </div>
+            <button className="button button-secondary" type="submit">
+              Save manual
+            </button>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }

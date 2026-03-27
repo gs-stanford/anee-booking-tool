@@ -10,16 +10,17 @@ type HeaderProps = {
     role: Role;
   } | null;
   labName: string;
+  appUrl: string;
   marketingUrl: string;
 };
 
-export function Header({ user, labName, marketingUrl }: HeaderProps) {
+export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
   return (
     <header className="site-header">
       <BrandLockup href={marketingUrl} labName={labName} />
 
       <nav className="header-nav">
-        <Link href={marketingUrl}>Home</Link>
+        <Link href={appUrl}>Home</Link>
         <Link href="/instruments">Instruments</Link>
         {user ? <Link href="/account">Account</Link> : null}
         {user?.role === Role.ADMIN ? <Link href="/admin/users">Users</Link> : null}
