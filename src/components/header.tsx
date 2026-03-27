@@ -15,15 +15,62 @@ type HeaderProps = {
 };
 
 export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
+  const inventoryLinks = [
+    {
+      label: "Gas Cylinders",
+      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7B31cc01ba-ba6d-4a66-8a94-9be7f5514316%7D&wdExp=TEAMS-TREATMENT&web=1"
+    },
+    {
+      label: "Chemicals",
+      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7B44c63b7b-a13a-4b70-8fcc-fef0dcdd573d%7D&wdExp=TEAMS-TREATMENT&web=1"
+    },
+    {
+      label: "Consumables",
+      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7B51990952-4f01-4954-b8be-b1f671b87f63%7D&wdExp=TEAMS-TREATMENT&web=1"
+    },
+    {
+      label: "Standard Parts",
+      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7Bad8b47ba-55e3-403f-bc90-74bbd7590f9e%7D&wdExp=TEAMS-TREATMENT&web=1"
+    }
+  ];
+
   return (
     <header className="site-header">
       <BrandLockup href={marketingUrl} labName={labName} />
 
       <nav className="header-nav">
-        <Link href={appUrl}>Home</Link>
-        <Link href="/instruments">Instruments</Link>
-        {user ? <Link href="/account">Account</Link> : null}
-        {user?.role === Role.ADMIN ? <Link href="/admin/users">Users</Link> : null}
+        <Link className="nav-link" href={appUrl}>
+          Home
+        </Link>
+        <Link className="nav-link" href="/instruments">
+          Instruments
+        </Link>
+        <div className="nav-dropdown" tabIndex={0}>
+          <span className="nav-link nav-dropdown-trigger">Inventory</span>
+          <div className="nav-dropdown-menu">
+            {inventoryLinks.map((item) => (
+              <a
+                className="nav-dropdown-item"
+                href={item.href}
+                key={item.label}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </div>
+        {user ? (
+          <Link className="nav-link" href="/account">
+            Account
+          </Link>
+        ) : null}
+        {user?.role === Role.ADMIN ? (
+          <Link className="nav-link" href="/admin/users">
+            Users
+          </Link>
+        ) : null}
         {user ? (
           <form action={logoutAction}>
             <button type="submit" className="button button-ghost">

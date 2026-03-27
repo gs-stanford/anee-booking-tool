@@ -65,9 +65,9 @@ export default async function HomePage() {
     {
       number: "2",
       title: "Inventory Management",
-      description: "Track consumables, stock levels, and internal requests.",
+      description: "Use the Inventory dropdown in the top navigation for gas cylinders, chemicals, consumables, and standard parts.",
       href: null,
-      status: "Coming soon"
+      status: "Live in header"
     },
     {
       number: "3",
