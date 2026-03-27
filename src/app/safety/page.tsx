@@ -57,7 +57,7 @@ function MaterialLogSection({
         </div>
       </div>
 
-      <div className="safety-log-grid">
+      <div className="safety-log-stack">
         <form action={createSafetyMaterialLogAction} className="panel safety-log-form">
           <input name="returnTo" type="hidden" value="/safety" />
           <input name="flow" type="hidden" value={flow} />
@@ -184,8 +184,10 @@ export default async function SafetyPage({
         {notice ? <Notice type={notice.type} message={notice.message} /> : null}
       </section>
 
-      <MaterialLogSection entries={incomingEntries} flow={SafetyMaterialFlow.INCOMING} />
-      <MaterialLogSection entries={outgoingEntries} flow={SafetyMaterialFlow.OUTGOING} />
+      <div className="safety-sections" style={{ gridColumn: "1 / -1" }}>
+        <MaterialLogSection entries={incomingEntries} flow={SafetyMaterialFlow.INCOMING} />
+        <MaterialLogSection entries={outgoingEntries} flow={SafetyMaterialFlow.OUTGOING} />
+      </div>
 
       <section className="panel" style={{ gridColumn: "1 / -1" }}>
         <div className="section-head">

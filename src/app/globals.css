@@ -338,11 +338,18 @@ h4 {
   align-items: start;
 }
 
-.safety-log-grid {
+.safety-sections,
+.safety-log-stack {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
   gap: 22px;
-  align-items: start;
+}
+
+.safety-sections {
+  grid-template-columns: 1fr;
+}
+
+.safety-log-stack {
+  grid-template-columns: 1fr;
 }
 
 .panel {
@@ -710,7 +717,8 @@ td {
   .two-column,
   .instrument-support-grid,
   .booking-bottom-grid,
-  .safety-log-grid,
+  .safety-sections,
+  .safety-log-stack,
   .form-grid.two-up,
   .hero {
     grid-template-columns: 1fr;
