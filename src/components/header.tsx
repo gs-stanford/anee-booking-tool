@@ -19,6 +19,8 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
     "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20inventory%20spreadsheets.";
   const purchaseRequestsLoginHref =
     "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20purchase%20request%20spreadsheets.";
+  const safetyLoginHref =
+    "/login?returnTo=%2Fsafety&noticeType=success&notice=Log%20in%20to%20open%20the%20Safety%20hub.";
   const inventoryLinks = [
     {
       label: "Gas Cylinders",
@@ -103,6 +105,9 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
             Purchase Requests
           </Link>
         )}
+        <Link className="nav-link" href={user ? "/safety" : safetyLoginHref}>
+          Safety
+        </Link>
         {user ? (
           <Link className="nav-link" href="/account">
             Account

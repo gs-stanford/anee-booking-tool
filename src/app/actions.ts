@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { InstrumentStatus, Role } from "@prisma/client";
+import { InstrumentStatus, Role, SafetyMaterialFlow } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import path from "path";
@@ -76,6 +76,15 @@ const reservationSchema = z.object({
 
 const reservationUpdateSchema = reservationSchema.extend({
   reservationId: z.string().min(1)
+});
+
+const safetyMaterialSchema = z.object({
+  flow: z.nativeEnum(SafetyMaterialFlow),
+  title: z.string().trim().min(2),
+  vendor: z.string().trim().min(2),
+  category: z.string().trim().min(2),
+  initialAmount: z.string().trim().min(1),
+  loggedAt: z.string().min(1)
 });
 
 async function ensureReservationAccess(reservationId: string, userId: string, role: Role) {
@@ -569,4 +578,45 @@ export async function cancelReservationAction(formData: FormData) {
 
   revalidatePath(`/instruments/${instrumentId}`);
   redirect(withNotice(returnTo, "success", "Reservation canceled."));
+}
+
+export async function createSafetyMaterialLogAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = getReturnTo(formData, "/safety");
+
+  const parsed = safetyMaterialSchema.safeParse({
+    flow: formData.get("flow"),
+    title: formData.get("title"),
+    vendor: formData.get("vendor"),
+    category: formData.get("category"),
+    initialAmount: formData.get("initialAmount"),
+    loggedAt: formData.get("loggedAt")
+  });
+
+  if (!parsed.success) {
+    redirect(withNotice(returnTo, "error", "Please complete the material log form with valid details."));
+  }
+
+  await db.safetyMaterialLog.create({
+    data: {
+      flow: parsed.data.flow,
+      title: parsed.data.title,
+      vendor: parsed.data.vendor,
+      category: parsed.data.category,
+      initialAmount: parsed.data.initialAmount,
+      loggedAt: new Date(parsed.data.loggedAt),
+      loggedById: user.id
+    }
+  });
+
+  revalidatePath("/safety");
+  redirect(
+    withNotice(
+      "/safety",
+      "success",
+      parsed.data.flow === SafetyMaterialFlow.INCOMING
+        ? "Incoming material logged."
+        : "Outgoing material logged."
+    )
+  );
 }

@@ -18,6 +18,11 @@ enum InstrumentStatus {
   OFFLINE
 }
 
+enum SafetyMaterialFlow {
+  INCOMING
+  OUTGOING
+}
+
 model User {
   id                 String             @id @default(cuid())
   name               String
@@ -26,6 +31,7 @@ model User {
   role               Role               @default(MEMBER)
   reservations       Reservation[]
   maintenanceEntries MaintenanceEntry[] @relation("MaintenancePerformedBy")
+  safetyMaterialLogs SafetyMaterialLog[] @relation("SafetyMaterialLoggedBy")
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 }
@@ -79,4 +85,21 @@ model Reservation {
   createdAt    DateTime   @default(now())
 
   @@index([instrumentId, startAt, endAt])
+}
+
+model SafetyMaterialLog {
+  id            String             @id @default(cuid())
+  flow          SafetyMaterialFlow
+  title         String
+  vendor        String
+  category      String
+  initialAmount String
+  loggedAt      DateTime
+  loggedById    String?
+  loggedBy      User?              @relation("SafetyMaterialLoggedBy", fields: [loggedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime           @default(now())
+
+  @@index([flow, loggedAt])
+  @@index([title])
+  @@index([category])
 }
