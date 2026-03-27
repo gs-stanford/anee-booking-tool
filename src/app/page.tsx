@@ -54,43 +54,6 @@ async function loadHomeData() {
 export default async function HomePage() {
   const [user, data] = await Promise.all([getCurrentUser(), loadHomeData()]);
   const { instrumentCount, userCount, upcomingReservations, instruments } = data;
-  const menuItems = [
-    {
-      number: "1",
-      title: "Lab Equipment and Instruments",
-      description: "Instrument pages, manuals, maintenance sheets, and booking calendars.",
-      href: "/instruments",
-      status: "Live"
-    },
-    {
-      number: "2",
-      title: "Inventory Management",
-      description: "Use the Inventory dropdown in the top navigation for gas cylinders, chemicals, consumables, and standard parts.",
-      href: null,
-      status: "Live in header"
-    },
-    {
-      number: "3",
-      title: "Purchase Requests",
-      description: "Submit equipment and supply requests with internal review routing.",
-      href: null,
-      status: "Coming soon"
-    },
-    {
-      number: "4",
-      title: "Team Meetings",
-      description: "Shared notes, agendas, and recurring lab meeting coordination.",
-      href: null,
-      status: "Coming soon"
-    },
-    {
-      number: "5",
-      title: "Safety",
-      description: "Training records, SDS access, and lab safety references.",
-      href: null,
-      status: "Coming soon"
-    }
-  ];
 
   return (
     <>
@@ -99,9 +62,8 @@ export default async function HomePage() {
           <span className="tag">Internal workspace</span>
           <h1>ANEE Lab Internal Tool</h1>
           <p>
-            This is the internal operating hub for the ANEE lab. The first live module is the instrument and
-            reservation system, and the rest of the major lab menus are staged here so we can expand the tool
-            section by section.
+            This is the internal operating hub for the ANEE lab. Instruments, inventory sheets, and purchase-request
+            trackers now live behind the same sign-in, with more internal workflows ready to slot in as the tool grows.
           </p>
 
           <div className="hero-actions">
@@ -113,58 +75,21 @@ export default async function HomePage() {
             </Link>
           </div>
         </div>
-
-        <aside className="hero-aside">
-          <h3>Current system status</h3>
-          <div className="list">
-            <div className="sheet-row">
-              <h4>{instrumentCount} tracked instruments</h4>
-              <p className="muted">The core instrument module is live for the lab and ready for shared scheduling.</p>
-            </div>
-            <div className="sheet-row">
-              <h4>{userCount} active user accounts</h4>
-              <p className="muted">Individual sign-in, admin user management, and personal password changes are enabled.</p>
-            </div>
-            <div className="sheet-row">
-              <h4>{upcomingReservations.length} upcoming reservations</h4>
-              <p className="muted">The booking calendar supports direct block selection, editing, and cancellation.</p>
-            </div>
-          </div>
-        </aside>
       </section>
 
-      <section className="panel">
-        <div className="section-head">
-          <div>
-            <h2>Lab menus</h2>
-            <p className="muted">Module 1 is active now. The remaining sections are queued for future buildout.</p>
-          </div>
-        </div>
-
-        <div className="menu-grid">
-          {menuItems.map((item) => {
-            const content = (
-              <>
-                <div className="menu-card-top">
-                  <span className="menu-card-index">{item.number}</span>
-                  <span className={`tag${item.href ? "" : " tag-muted"}`}>{item.status}</span>
-                </div>
-                <h3>{item.title}</h3>
-                <p className="muted">{item.description}</p>
-              </>
-            );
-
-            return item.href ? (
-              <Link className="menu-card" href={item.href} key={item.number}>
-                {content}
-              </Link>
-            ) : (
-              <article className="menu-card menu-card-disabled" key={item.number}>
-                {content}
-              </article>
-            );
-          })}
-        </div>
+      <section className="dashboard-grid">
+        <article className="panel">
+          <p className="muted">Tracked instruments</p>
+          <div className="stat">{instrumentCount}</div>
+        </article>
+        <article className="panel">
+          <p className="muted">Active user accounts</p>
+          <div className="stat">{userCount}</div>
+        </article>
+        <article className="panel">
+          <p className="muted">Upcoming reservations</p>
+          <div className="stat">{upcomingReservations.length}</div>
+        </article>
       </section>
 
       <section className="two-column landing-columns" style={{ marginTop: 24 }}>

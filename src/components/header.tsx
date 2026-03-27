@@ -17,6 +17,8 @@ type HeaderProps = {
 export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
   const inventoryLoginHref =
     "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20inventory%20spreadsheets.";
+  const purchaseRequestsLoginHref =
+    "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20purchase%20request%20spreadsheets.";
   const inventoryLinks = [
     {
       label: "Gas Cylinders",
@@ -33,6 +35,16 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
     {
       label: "Standard Parts",
       href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7Bad8b47ba-55e3-403f-bc90-74bbd7590f9e%7D&wdExp=TEAMS-TREATMENT&web=1"
+    }
+  ];
+  const purchaseRequestLinks = [
+    {
+      label: "Consumables to Buy",
+      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/Shared%20Documents/3.%20Purchase%20Requests/Consumables%20to%20Buy.xlsx?d=w7fc12bd59fb446aaaef6f8dac4f69ca1&csf=1&web=1&e=CvYgcp"
+    },
+    {
+      label: "Gas Cylinders",
+      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/Shared%20Documents/3.%20Purchase%20Requests/Gas%20Cylinders%20in%20Process.xlsx?d=w3480a571e6a84d35bba4cbe2b3cefe38&csf=1&web=1&e=0O6xo3"
     }
   ];
 
@@ -67,6 +79,28 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
         ) : (
           <Link className="nav-link" href={inventoryLoginHref}>
             Inventory
+          </Link>
+        )}
+        {user ? (
+          <div className="nav-dropdown" tabIndex={0}>
+            <span className="nav-link nav-dropdown-trigger">Purchase Requests</span>
+            <div className="nav-dropdown-menu">
+              {purchaseRequestLinks.map((item) => (
+                <a
+                  className="nav-dropdown-item"
+                  href={item.href}
+                  key={item.label}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Link className="nav-link" href={purchaseRequestsLoginHref}>
+            Purchase Requests
           </Link>
         )}
         {user ? (
