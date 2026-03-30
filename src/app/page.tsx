@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { db } from "@/lib/db";
@@ -70,9 +71,24 @@ export default async function HomePage() {
             <Link className="button button-primary" href={user ? "/instruments" : "/login"}>
               {user ? "Open lab equipment module" : "Log in to continue"}
             </Link>
-            <Link className="button button-secondary" href={user ? "/account" : "/login"}>
-              {user ? "Open account" : "View sign-in"}
-            </Link>
+            {user ? (
+              <Link className="button button-secondary" href="/account">
+                Open account
+              </Link>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="hero-media">
+          <div className="hero-image-shell">
+            <Image
+              alt="ANEE aerosol visualization"
+              className="hero-image"
+              height={720}
+              priority
+              src="/aerosol.webp"
+              width={720}
+            />
           </div>
         </div>
       </section>
@@ -139,6 +155,8 @@ export default async function HomePage() {
           </div>
         </article>
       </section>
+
+      <p className="page-credit">Designed by Gaurav, 2026.</p>
     </>
   );
 }
