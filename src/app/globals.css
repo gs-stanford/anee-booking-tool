@@ -154,22 +154,29 @@ h4 {
 .header-nav {
   display: flex;
   align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.header-nav-links {
+  display: flex;
+  align-items: center;
   gap: 0;
   flex-wrap: wrap;
 }
 
-.header-nav > * {
+.header-nav-links > * {
   display: inline-flex;
   align-items: center;
 }
 
-.header-nav > * + * {
+.header-nav-links > * + * {
   position: relative;
   margin-left: 18px;
   padding-left: 18px;
 }
 
-.header-nav > * + *::before {
+.header-nav-links > * + *::before {
   content: "";
   position: absolute;
   left: 0;
@@ -786,7 +793,8 @@ td {
     flex-direction: column;
   }
 
-  .header-nav {
+  .header-nav,
+  .header-nav-links {
     gap: 10px 0;
   }
 

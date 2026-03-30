@@ -55,69 +55,72 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
       <BrandLockup href={marketingUrl} labName={labName} />
 
       <nav className="header-nav">
-        <Link className="nav-link" href={appUrl}>
-          Home
-        </Link>
-        <Link className="nav-link" href="/instruments">
-          Instruments
-        </Link>
-        {user ? (
-          <div className="nav-dropdown" tabIndex={0}>
-            <span className="nav-link nav-dropdown-trigger">Inventory</span>
-            <div className="nav-dropdown-menu">
-              {inventoryLinks.map((item) => (
-                <a
-                  className="nav-dropdown-item"
-                  href={item.href}
-                  key={item.label}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {item.label}
-                </a>
-              ))}
+        <div className="header-nav-links">
+          <Link className="nav-link" href={appUrl}>
+            Home
+          </Link>
+          <Link className="nav-link" href="/instruments">
+            Instruments
+          </Link>
+          {user ? (
+            <div className="nav-dropdown" tabIndex={0}>
+              <span className="nav-link nav-dropdown-trigger">Inventory</span>
+              <div className="nav-dropdown-menu">
+                {inventoryLinks.map((item) => (
+                  <a
+                    className="nav-dropdown-item"
+                    href={item.href}
+                    key={item.label}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : (
-          <Link className="nav-link" href={inventoryLoginHref}>
-            Inventory
-          </Link>
-        )}
-        {user ? (
-          <div className="nav-dropdown" tabIndex={0}>
-            <span className="nav-link nav-dropdown-trigger">Purchase Requests</span>
-            <div className="nav-dropdown-menu">
-              {purchaseRequestLinks.map((item) => (
-                <a
-                  className="nav-dropdown-item"
-                  href={item.href}
-                  key={item.label}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {item.label}
-                </a>
-              ))}
+          ) : (
+            <Link className="nav-link" href={inventoryLoginHref}>
+              Inventory
+            </Link>
+          )}
+          {user ? (
+            <div className="nav-dropdown" tabIndex={0}>
+              <span className="nav-link nav-dropdown-trigger">Purchase Requests</span>
+              <div className="nav-dropdown-menu">
+                {purchaseRequestLinks.map((item) => (
+                  <a
+                    className="nav-dropdown-item"
+                    href={item.href}
+                    key={item.label}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : (
-          <Link className="nav-link" href={purchaseRequestsLoginHref}>
-            Purchase Requests
+          ) : (
+            <Link className="nav-link" href={purchaseRequestsLoginHref}>
+              Purchase Requests
+            </Link>
+          )}
+          <Link className="nav-link" href={user ? "/safety" : safetyLoginHref}>
+            Safety
           </Link>
-        )}
-        <Link className="nav-link" href={user ? "/safety" : safetyLoginHref}>
-          Safety
-        </Link>
-        {user ? (
-          <Link className="nav-link" href="/account">
-            Account
-          </Link>
-        ) : null}
-        {user?.role === Role.ADMIN ? (
-          <Link className="nav-link" href="/admin/users">
-            Users
-          </Link>
-        ) : null}
+          {user ? (
+            <Link className="nav-link" href="/account">
+              Account
+            </Link>
+          ) : null}
+          {user?.role === Role.ADMIN ? (
+            <Link className="nav-link" href="/admin/users">
+              Users
+            </Link>
+          ) : null}
+        </div>
+
         {user ? (
           <form action={logoutAction}>
             <button type="submit" className="button button-ghost">
