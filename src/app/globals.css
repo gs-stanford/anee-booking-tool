@@ -161,30 +161,13 @@ h4 {
 .header-nav-links {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 18px;
   flex-wrap: wrap;
 }
 
 .header-nav-links > * {
   display: inline-flex;
   align-items: center;
-}
-
-.header-nav-links > * + * {
-  position: relative;
-  margin-left: 18px;
-  padding-left: 18px;
-}
-
-.header-nav-links > * + *::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 1px;
-  height: 26px;
-  transform: translateY(-50%);
-  background: linear-gradient(180deg, rgba(140, 21, 21, 0.15), rgba(140, 21, 21, 0.65), rgba(140, 21, 21, 0.15));
 }
 
 .nav-link,
