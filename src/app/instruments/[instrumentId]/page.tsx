@@ -134,6 +134,10 @@ export default async function InstrumentDetailPage({
   const instrumentUnowned = !instrument.ownerId;
   const canManageInstrument = user.role === Role.ADMIN || instrument.ownerId === user.id;
   const statusLabel = instrument.status === InstrumentStatus.AVAILABLE ? "Available" : "Unavailable";
+  const statusClassName =
+    instrument.status === InstrumentStatus.AVAILABLE
+      ? "status-pill status-pill-available"
+      : "status-pill status-pill-unavailable";
   const serializeReservation = (reservation: (typeof instrument.reservations)[number]) => {
     const startTime = getLabTimeKey(reservation.startAt);
     const endDateKey = getLabDateKey(reservation.endAt);
@@ -167,7 +171,7 @@ export default async function InstrumentDetailPage({
             <h1>{instrument.name}</h1>
             <div className="meta">
               <span>{instrument.location}</span>
-              <span>{statusLabel}</span>
+              <span className={statusClassName}>{statusLabel}</span>
               <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
               <span>{instrument.manuals.length} manual(s)</span>
             </div>
@@ -233,10 +237,10 @@ export default async function InstrumentDetailPage({
               </div>
             </div>
 
-            <div className="meta" style={{ marginBottom: 18 }}>
-              <span>Current status: {statusLabel}</span>
-              {instrument.statusNote ? <span>{instrument.statusNote}</span> : null}
-            </div>
+          <div className="meta" style={{ marginBottom: 18 }}>
+            <span className={statusClassName}>{statusLabel}</span>
+            {instrument.statusNote ? <span>{instrument.statusNote}</span> : null}
+          </div>
 
             {canManageInstrument ? (
               <form action={updateInstrumentStatusAction} className="form-grid">

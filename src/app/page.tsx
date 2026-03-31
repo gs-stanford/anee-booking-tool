@@ -55,6 +55,8 @@ async function loadHomeData() {
 export default async function HomePage() {
   const [user, data] = await Promise.all([getCurrentUser(), loadHomeData()]);
   const { instrumentCount, userCount, upcomingReservations, instruments } = data;
+  const getStatusClassName = (status: string) =>
+    status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
 
   return (
     <>
@@ -123,7 +125,9 @@ export default async function HomePage() {
                   <h3>{instrument.name}</h3>
                   <div className="meta">
                     <span>{instrument.location}</span>
-                    <span>{instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}</span>
+                    <span className={getStatusClassName(instrument.status)}>
+                      {instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}
+                    </span>
                   </div>
                   <p>{instrument.description}</p>
                 </Link>

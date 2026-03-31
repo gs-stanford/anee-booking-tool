@@ -33,6 +33,8 @@ export default async function InstrumentsPage({
   });
 
   const notice = getNotice(await searchParams);
+  const getStatusClassName = (status: string) =>
+    status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
 
   return (
     <section className="panel">
@@ -62,7 +64,9 @@ export default async function InstrumentsPage({
                     <h3>{instrument.name}</h3>
                     <div className="meta">
                       <span>{instrument.location}</span>
-                      <span>{instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}</span>
+                      <span className={getStatusClassName(instrument.status)}>
+                        {instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}
+                      </span>
                       <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
                       <span>{instrument.manuals.length} manual(s)</span>
                     </div>

@@ -102,6 +102,14 @@ function defaultSelection(composeDate: string): SelectionState {
   };
 }
 
+function fullDaySelection(date: string): SelectionState {
+  return {
+    date,
+    startSlot: 0,
+    endSlot: TOTAL_SLOTS
+  };
+}
+
 export function BookingCalendar({
   instrumentId,
   reservations,
@@ -211,7 +219,16 @@ export function BookingCalendar({
     setSelectionSource("grid");
   }
 
+  function handleAllDayToggle(enabled: boolean) {
+    setSelection(enabled ? fullDaySelection(selection.date) : defaultSelection(selection.date));
+
+    if (enabled) {
+      setSelectionSource(activeReservationId ? "reservation" : "grid");
+    }
+  }
+
   const canSubmit = selectionSource === "grid" || activeReservationEditable;
+  const isAllDaySelection = selection.startSlot === 0 && selection.endSlot === TOTAL_SLOTS;
   const returnTo = activeReservationEditable && activeReservation
     ? `/instruments/${instrumentId}?week=${weekOffset}&composeDate=${selection.date}&reservationId=${activeReservation.id}`
     : `/instruments/${instrumentId}?week=${weekOffset}&composeDate=${selection.date}`;
@@ -353,6 +370,17 @@ export function BookingCalendar({
               </button>
             ) : null}
           </div>
+
+          <label className="checkbox-row" htmlFor="allDay">
+            <input
+              checked={isAllDaySelection}
+              id="allDay"
+              name="allDay"
+              onChange={(event) => handleAllDayToggle(event.target.checked)}
+              type="checkbox"
+            />
+            <span>All day</span>
+          </label>
 
           <div className="selection-summary">
             <span className="tag">
