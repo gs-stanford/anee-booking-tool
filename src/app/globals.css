@@ -431,6 +431,10 @@ h4 {
   gap: 16px;
 }
 
+#reservation-calendar {
+  scroll-margin-top: 120px;
+}
+
 .shared-reservations-toolbar {
   display: flex;
   justify-content: space-between;

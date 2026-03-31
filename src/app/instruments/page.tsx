@@ -83,20 +83,6 @@ export default async function InstrumentsPage({
 
         {notice ? <Notice type={notice.type} message={notice.message} /> : null}
 
-        <SharedReservationsOverview
-          calendarItems={sharedReservationCalendarItems}
-          summaries={sharedReservationSummaries}
-        />
-      </section>
-
-      <section className="panel">
-        <div className="section-head">
-          <div>
-            <h2>Instrument list</h2>
-            <p className="muted">Open any instrument to manage manuals, maintenance, and detailed booking.</p>
-          </div>
-        </div>
-
         <div className="list">
           {instruments.length === 0 ? (
             <p className="muted">No instruments have been added yet.</p>
@@ -134,6 +120,21 @@ export default async function InstrumentsPage({
             })
           )}
         </div>
+      </section>
+
+      <section className="panel" id="reservation-calendar">
+        <div className="section-head">
+          <div>
+            <h2>Upcoming reservations</h2>
+            <p className="muted">Switch between the shared calendar and the summarized reservation list.</p>
+          </div>
+        </div>
+
+        <SharedReservationsOverview
+          calendarItems={sharedReservationCalendarItems}
+          defaultView="calendar"
+          summaries={sharedReservationSummaries}
+        />
       </section>
     </div>
   );

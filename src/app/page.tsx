@@ -174,6 +174,7 @@ export default async function HomePage() {
             <h2>Upcoming reservations</h2>
           </div>
           <SharedReservationsOverview
+            calendarHref="/instruments#reservation-calendar"
             calendarItems={reservationCalendarItems}
             summaries={reservationSummaries}
           />

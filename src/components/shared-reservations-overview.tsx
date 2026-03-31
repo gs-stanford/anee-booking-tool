@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { ReservationSummary } from "@/lib/reservation-summary";
@@ -9,7 +10,11 @@ type SharedReservationsOverviewProps = {
   summaries: ReservationSummary[];
   calendarItems: ReservationCalendarItem[];
   emptyMessage?: string;
+  defaultView?: "list" | "calendar";
+  calendarHref?: string;
 };
+
+type OverviewView = "list" | "calendar";
 
 const INSTRUMENT_COLORS = [
   { background: "#eef5c9", border: "#c7d76f", text: "#536416" },
@@ -67,12 +72,15 @@ function buildMonthGrid(monthStart: Date) {
 export function SharedReservationsOverview({
   summaries,
   calendarItems,
-  emptyMessage = "No reservations scheduled yet."
+  emptyMessage = "No reservations scheduled yet.",
+  defaultView = "list",
+  calendarHref
 }: SharedReservationsOverviewProps) {
-  const [view, setView] = useState<"list" | "calendar">("list");
+  const [view, setView] = useState<OverviewView>(defaultView);
   const [monthOffset, setMonthOffset] = useState(0);
   const monthStart = getMonthStart(monthOffset);
   const monthKeyPrefix = toDateKey(monthStart).slice(0, 7);
+  const viewOrder: OverviewView[] = defaultView === "calendar" ? ["calendar", "list"] : ["list", "calendar"];
 
   const reservationsByDay = useMemo(() => {
     return calendarItems.reduce<Record<string, ReservationCalendarItem[]>>((map, reservation) => {
@@ -92,20 +100,26 @@ export function SharedReservationsOverview({
     <div className="shared-reservations-overview">
       <div className="shared-reservations-toolbar">
         <div className="inline-actions">
-          <button
-            className={`button button-small ${view === "list" ? "button-secondary" : "button-ghost"}`}
-            onClick={() => setView("list")}
-            type="button"
-          >
-            List
-          </button>
-          <button
-            className={`button button-small ${view === "calendar" ? "button-secondary" : "button-ghost"}`}
-            onClick={() => setView("calendar")}
-            type="button"
-          >
-            Calendar
-          </button>
+          {viewOrder.map((viewOption) => {
+            if (viewOption === "calendar" && calendarHref) {
+              return (
+                <Link className="button button-small button-ghost" href={calendarHref} key="calendar-link">
+                  Calendar
+                </Link>
+              );
+            }
+
+            return (
+              <button
+                className={`button button-small ${view === viewOption ? "button-secondary" : "button-ghost"}`}
+                onClick={() => setView(viewOption)}
+                key={viewOption}
+                type="button"
+              >
+                {viewOption === "calendar" ? "Calendar" : "List"}
+              </button>
+            );
+          })}
         </div>
 
         {view === "calendar" ? (
