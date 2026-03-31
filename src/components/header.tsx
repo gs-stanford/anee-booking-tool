@@ -20,7 +20,9 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
   const purchaseRequestsLoginHref =
     "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20purchase%20request%20spreadsheets.";
   const safetyLoginHref =
-    "/login?returnTo=%2Fsafety&noticeType=success&notice=Log%20in%20to%20open%20the%20Safety%20hub.";
+    "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20the%20Safety%20folder.";
+  const safetyFolderHref =
+    "https://office365stanford.sharepoint.com/:f:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/Shared%20Documents/5.%20Safety/C.%20SDS?csf=1&web=1&e=uaeuAz";
   const inventoryLinks = [
     {
       label: "Gas Cylinders",
@@ -106,9 +108,15 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
               Purchase Requests
             </Link>
           )}
-          <Link className="nav-link" href={user ? "/safety" : safetyLoginHref}>
-            Safety
-          </Link>
+          {user ? (
+            <a className="nav-link" href={safetyFolderHref} rel="noreferrer" target="_blank">
+              Safety
+            </a>
+          ) : (
+            <Link className="nav-link" href={safetyLoginHref}>
+              Safety
+            </Link>
+          )}
           {user ? (
             <Link className="nav-link" href="/account">
               Account

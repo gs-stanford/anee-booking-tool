@@ -258,6 +258,7 @@ export function BookingCalendar({
       <div className="calendar-board">
         <div className="calendar-time-column">
           <div className="calendar-corner" />
+          <div className="calendar-all-day-spacer" />
           {hours.map((hour) => (
             <div className="calendar-time-label" key={hour}>
               {hour === 12 ? "12 PM" : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
