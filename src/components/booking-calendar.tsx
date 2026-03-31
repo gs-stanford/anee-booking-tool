@@ -9,6 +9,7 @@ type ReservationItem = {
   date: string;
   startSlot: number;
   endSlot: number;
+  isAllDay: boolean;
   startTimeLabel: string;
   endTimeLabel: string;
   timeRangeLabel: string;
@@ -110,6 +111,34 @@ function fullDaySelection(date: string): SelectionState {
   };
 }
 
+function formatAllDaySelectionLabel(selectedDates: string[]) {
+  if (selectedDates.length === 0) {
+    return "";
+  }
+
+  const sortedDates = [...selectedDates].sort();
+
+  if (sortedDates.length === 1) {
+    return `${formatDateKey(sortedDates[0])} (All day)`;
+  }
+
+  const isContinuous = sortedDates.every((date, index) => {
+    if (index === 0) {
+      return true;
+    }
+
+    const previous = new Date(`${sortedDates[index - 1]}T12:00:00Z`);
+    const current = new Date(`${date}T12:00:00Z`);
+    return current.getTime() - previous.getTime() === 24 * 60 * 60 * 1000;
+  });
+
+  if (isContinuous) {
+    return `${formatDateKey(sortedDates[0])} to ${formatDateKey(sortedDates[sortedDates.length - 1])} (All day)`;
+  }
+
+  return `${sortedDates.map((date) => formatDateKey(date)).join(", ")} (All day)`;
+}
+
 export function BookingCalendar({
   instrumentId,
   reservations,
@@ -133,6 +162,9 @@ export function BookingCalendar({
   const [activeReservationId, setActiveReservationId] = useState(initialReservation?.id ?? "");
   const [selection, setSelection] = useState<SelectionState>(
     initialReservation ? reservationToSelection(initialReservation) : defaultSelection(composeDate)
+  );
+  const [selectedAllDayDates, setSelectedAllDayDates] = useState<string[]>(
+    initialReservation?.isAllDay ? [initialReservation.date] : []
   );
   const [purpose, setPurpose] = useState(initialReservation?.purpose ?? "");
   const [selectionSource, setSelectionSource] = useState<"grid" | "reservation">(initialReservation ? "reservation" : "grid");
@@ -184,6 +216,7 @@ export function BookingCalendar({
     setPointerSelecting(true);
     setSelectionSource("grid");
     setActiveReservationId("");
+    setSelectedAllDayDates([]);
     setPurpose("");
 
     updateSelectionFromSlot(date, slotIndex);
@@ -208,6 +241,7 @@ export function BookingCalendar({
 
     setActiveReservationId(reservation.id);
     setSelection(reservationToSelection(reservation));
+    setSelectedAllDayDates(reservation.isAllDay ? [reservation.date] : []);
     setPurpose(reservation.purpose ?? "");
     setSelectionSource("reservation");
   }
@@ -215,6 +249,7 @@ export function BookingCalendar({
   function handleNewReservation() {
     setActiveReservationId("");
     setSelection(defaultSelection(selection.date));
+    setSelectedAllDayDates([]);
     setPurpose("");
     setSelectionSource("grid");
   }
@@ -222,12 +257,26 @@ export function BookingCalendar({
   function handleAllDaySelect(date: string) {
     setActiveReservationId("");
     setPurpose("");
-    setSelection(fullDaySelection(date));
     setSelectionSource("grid");
+
+    setSelectedAllDayDates((currentDates) => {
+      const nextDates = currentDates.includes(date)
+        ? currentDates.filter((currentDate) => currentDate !== date)
+        : [...currentDates, date];
+      const sortedDates = nextDates.sort();
+
+      if (sortedDates.length > 0) {
+        setSelection(fullDaySelection(sortedDates[0]));
+      } else {
+        setSelection(defaultSelection(date));
+      }
+
+      return sortedDates;
+    });
   }
 
-  const canSubmit = selectionSource === "grid" || activeReservationEditable;
-  const isAllDaySelection = selection.startSlot === 0 && selection.endSlot === TOTAL_SLOTS;
+  const canSubmit = selectedAllDayDates.length > 0 || selectionSource === "grid" || activeReservationEditable;
+  const allDaySelectionLabel = formatAllDaySelectionLabel(selectedAllDayDates);
   const returnTo = activeReservationEditable && activeReservation
     ? `/instruments/${instrumentId}?week=${weekOffset}&composeDate=${selection.date}&reservationId=${activeReservation.id}`
     : `/instruments/${instrumentId}?week=${weekOffset}&composeDate=${selection.date}`;
@@ -270,7 +319,7 @@ export function BookingCalendar({
           const dayReservations = reservations.filter((reservation) => reservation.date === day.date);
           const dayLabel = day.date;
           const isComposeDay = selection.date === dayLabel;
-          const hasSelection = isComposeDay;
+          const hasSelection = isComposeDay || selectedAllDayDates.includes(dayLabel);
           const selectionTop = selection.startSlot * SLOT_HEIGHT;
           const selectionHeight = Math.max((selection.endSlot - selection.startSlot) * SLOT_HEIGHT, SLOT_HEIGHT);
 
@@ -286,7 +335,7 @@ export function BookingCalendar({
               </button>
 
               <button
-                className={`calendar-all-day-button${selection.date === dayLabel && isAllDaySelection ? " calendar-all-day-button-active" : ""}`}
+                className={`calendar-all-day-button${selectedAllDayDates.includes(dayLabel) ? " calendar-all-day-button-active" : ""}`}
                 onClick={() => handleAllDaySelect(dayLabel)}
                 type="button"
               >
@@ -318,7 +367,10 @@ export function BookingCalendar({
                 {hasSelection ? (
                   <div
                     className="calendar-selection"
-                    style={{ top: `${selectionTop}px`, height: `${selectionHeight}px` }}
+                    style={{
+                      top: `${selectedAllDayDates.includes(dayLabel) ? 0 : selectionTop}px`,
+                      height: `${selectedAllDayDates.includes(dayLabel) ? TOTAL_SLOTS * SLOT_HEIGHT : selectionHeight}px`
+                    }}
                   />
                 ) : null}
 
@@ -338,7 +390,7 @@ export function BookingCalendar({
                     >
                       <strong>{reservation.user.name}</strong>
                       <span>
-                        {reservation.startTimeLabel} to {reservation.endTimeLabel}
+                        {reservation.isAllDay ? "All day" : `${reservation.startTimeLabel} to ${reservation.endTimeLabel}`}
                       </span>
                       {reservation.purpose ? <p>{reservation.purpose}</p> : null}
                     </button>
@@ -359,6 +411,7 @@ export function BookingCalendar({
           <input name="returnTo" type="hidden" value={returnTo} />
           <input name="instrumentId" type="hidden" value={instrumentId} />
           <input name="date" type="hidden" value={selection.date} />
+          <input name="selectedDates" type="hidden" value={selectedAllDayDates.join(",")} />
           <input name="startTime" type="hidden" value={slotToTime(selection.startSlot)} />
           <input name="endTime" type="hidden" value={slotToTime(selection.endSlot)} />
           {activeReservationEditable && activeReservation ? (
@@ -384,12 +437,16 @@ export function BookingCalendar({
               {activeReservationEditable ? "Editing existing booking" : selectionSource === "reservation" ? "Viewing booking" : "Selected block"}
             </span>
             <h4>
-              {formatSelectionDateTime(selection.date, selection.startSlot)} to {formatTimeLabel(slotToTime(selection.endSlot))}
+              {selectedAllDayDates.length > 0
+                ? allDaySelectionLabel
+                : `${formatSelectionDateTime(selection.date, selection.startSlot)} to ${formatTimeLabel(slotToTime(selection.endSlot))}`}
             </h4>
             <p className="muted">
               {selectionSource === "reservation" && !activeReservationEditable
                 ? "This booking belongs to another lab member. Select an open block to create your own reservation."
-                : "Click once for a 30-minute block or drag vertically for longer reservations."}
+                : selectedAllDayDates.length > 0
+                  ? "Click All day on each date you want, then reserve them together in one submission."
+                  : "Click once for a 30-minute block or drag vertically for longer reservations."}
             </p>
           </div>
 
@@ -442,7 +499,7 @@ export function BookingCalendar({
                     </span>
                   </div>
                   <div className="meta">
-                    <span>{reservation.timeRangeLabel}</span>
+                    <span>{reservation.isAllDay ? `${formatDateKey(reservation.date)} (All day)` : reservation.timeRangeLabel}</span>
                   </div>
                   {reservation.purpose ? <p>{reservation.purpose}</p> : null}
                 </button>

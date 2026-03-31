@@ -14,6 +14,7 @@ import {
   uploadManualAction
 } from "@/app/actions";
 import { BookingCalendar } from "@/components/booking-calendar";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -143,13 +144,16 @@ export default async function InstrumentDetailPage({
     const endDateKey = getLabDateKey(reservation.endAt);
     const endTimeBase = getLabTimeKey(reservation.endAt);
     const endTime = endDateKey !== getLabDateKey(reservation.startAt) && endTimeBase === "00:00" ? "24:00" : endTimeBase;
+    const startSlot = timeKeyToSlot(startTime);
+    const endSlot = timeKeyToSlot(endTime);
 
     return {
       id: reservation.id,
       userId: reservation.userId,
       date: getLabDateKey(reservation.startAt),
-      startSlot: timeKeyToSlot(startTime),
-      endSlot: timeKeyToSlot(endTime),
+      startSlot,
+      endSlot,
+      isAllDay: startSlot === 0 && endSlot === 36,
       timeRangeLabel: `${formatDateTime(reservation.startAt)} to ${formatDateTime(reservation.endAt)}`,
       startTimeLabel: formatTime(reservation.startAt),
       endTimeLabel: formatTime(reservation.endAt),
@@ -181,9 +185,11 @@ export default async function InstrumentDetailPage({
               <span className="tag">{user.role === Role.ADMIN ? "Admin or owner controls" : "Owner controls"}</span>
               <form action={deleteInstrumentAction}>
                 <input type="hidden" name="instrumentId" value={instrument.id} />
-                <button className="button button-ghost button-small" type="submit">
-                  Delete instrument
-                </button>
+                <ConfirmSubmitButton
+                  className="button button-ghost button-small"
+                  label="Delete instrument"
+                  message={`Delete ${instrument.name}? This cannot be undone. Click OK to confirm or Cancel to keep it.`}
+                />
               </form>
             </div>
           ) : (

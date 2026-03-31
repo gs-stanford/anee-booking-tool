@@ -578,6 +578,10 @@ export async function addMaintenanceEntryAction(formData: FormData) {
 export async function createReservationAction(formData: FormData) {
   const user = await requireUser();
   const returnTo = getReturnTo(formData, `/instruments/${String(formData.get("instrumentId") ?? "")}`);
+  const selectedDates = String(formData.get("selectedDates") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 
   const parsed = reservationSchema.safeParse({
     instrumentId: formData.get("instrumentId"),
@@ -591,38 +595,74 @@ export async function createReservationAction(formData: FormData) {
     redirect(withNotice(returnTo, "error", "Please complete the reservation form."));
   }
 
-  const startAt = parseLabDateTime(parsed.data.date, parsed.data.startTime);
-  const endAt = parseLabDateTime(parsed.data.date, parsed.data.endTime);
+  const reservationWindows =
+    selectedDates.length > 0
+      ? selectedDates.map((date) => ({
+          date,
+          startAt: parseLabDateTime(date, "06:00"),
+          endAt: parseLabDateTime(date, "24:00")
+        }))
+      : [
+          {
+            date: parsed.data.date,
+            startAt: parseLabDateTime(parsed.data.date, parsed.data.startTime),
+            endAt: parseLabDateTime(parsed.data.date, parsed.data.endTime)
+          }
+        ];
 
-  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || startAt >= endAt) {
+  const hasInvalidWindow = reservationWindows.some(
+    ({ startAt, endAt }) => Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || startAt >= endAt
+  );
+
+  if (hasInvalidWindow) {
     redirect(withNotice(returnTo, "error", "Choose a valid time range."));
   }
 
-  const conflict = await db.reservation.findFirst({
-    where: {
-      instrumentId: parsed.data.instrumentId,
-      startAt: { lt: endAt },
-      endAt: { gt: startAt }
-    }
-  });
+  for (const window of reservationWindows) {
+    const conflict = await db.reservation.findFirst({
+      where: {
+        instrumentId: parsed.data.instrumentId,
+        startAt: { lt: window.endAt },
+        endAt: { gt: window.startAt }
+      }
+    });
 
-  if (conflict) {
-    redirect(withNotice(returnTo, "error", "That time slot is already reserved."));
+    if (conflict) {
+      redirect(
+        withNotice(
+          returnTo,
+          "error",
+          selectedDates.length > 0
+            ? "One or more selected all-day dates are already reserved."
+            : "That time slot is already reserved."
+        )
+      );
+    }
   }
 
-  await db.reservation.create({
-    data: {
-      instrumentId: parsed.data.instrumentId,
-      userId: user.id,
-      startAt,
-      endAt,
-      purpose: parsed.data.purpose
-    }
-  });
+  await db.$transaction(
+    reservationWindows.map((window) =>
+      db.reservation.create({
+        data: {
+          instrumentId: parsed.data.instrumentId,
+          userId: user.id,
+          startAt: window.startAt,
+          endAt: window.endAt,
+          purpose: parsed.data.purpose
+        }
+      })
+    )
+  );
 
   revalidatePath("/");
   revalidatePath(`/instruments/${parsed.data.instrumentId}`);
-  redirect(withNotice(returnTo, "success", "Reservation created."));
+  redirect(
+    withNotice(
+      returnTo,
+      "success",
+      selectedDates.length > 1 ? "All-day reservations created." : "Reservation created."
+    )
+  );
 }
 
 export async function updateReservationAction(formData: FormData) {
