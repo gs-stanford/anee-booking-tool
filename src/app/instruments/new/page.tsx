@@ -20,7 +20,7 @@ export default async function NewInstrumentPage({
       <div className="section-head">
         <div>
           <h1>Add a new instrument</h1>
-          <p className="muted">Any signed-in lab member can create the core record first, then admins can add manuals if needed.</p>
+          <p className="muted">Any signed-in lab member can create the core record and become the owner for later availability updates.</p>
         </div>
       </div>
 
@@ -42,12 +42,18 @@ export default async function NewInstrumentPage({
         <div className="field">
           <label htmlFor="status">Status</label>
           <select id="status" name="status" defaultValue={InstrumentStatus.AVAILABLE}>
-            {Object.values(InstrumentStatus).map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
+            <option value={InstrumentStatus.AVAILABLE}>Available</option>
+            <option value={InstrumentStatus.UNAVAILABLE}>Unavailable</option>
           </select>
+        </div>
+
+        <div className="field">
+          <label htmlFor="statusNote">Unavailable note</label>
+          <input
+            id="statusNote"
+            name="statusNote"
+            placeholder="Out for service, on campaign, loaned out, broken, etc."
+          />
         </div>
 
         <div className="field">

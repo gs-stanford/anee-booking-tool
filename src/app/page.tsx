@@ -123,7 +123,7 @@ export default async function HomePage() {
                   <h3>{instrument.name}</h3>
                   <div className="meta">
                     <span>{instrument.location}</span>
-                    <span>{instrument.status}</span>
+                    <span>{instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}</span>
                   </div>
                   <p>{instrument.description}</p>
                 </Link>
@@ -146,7 +146,7 @@ export default async function HomePage() {
                   <div className="meta">
                     <span>{reservation.user.name}</span>
                     <span>{formatDateTime(reservation.startAt)}</span>
-                    <span>{reservation.endAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                    <span>{formatDateTime(reservation.endAt)}</span>
                   </div>
                   {reservation.purpose ? <p>{reservation.purpose}</p> : null}
                 </div>

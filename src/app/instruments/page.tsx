@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Notice } from "@/components/notice";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getNotice } from "@/lib/utils";
+import { formatDateTime, getNotice } from "@/lib/utils";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -18,6 +18,7 @@ export default async function InstrumentsPage({
       name: "asc"
     },
     include: {
+      owner: true,
       manuals: true,
       reservations: {
         where: {
@@ -61,17 +62,20 @@ export default async function InstrumentsPage({
                     <h3>{instrument.name}</h3>
                     <div className="meta">
                       <span>{instrument.location}</span>
-                      <span>{instrument.status}</span>
+                      <span>{instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}</span>
+                      <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
                       <span>{instrument.manuals.length} manual(s)</span>
                     </div>
                   </div>
                   <span className="tag">{nextReservation ? "Reserved soon" : "Open schedule"}</span>
                 </div>
                 <p>{instrument.description}</p>
+                {instrument.status === "UNAVAILABLE" && instrument.statusNote ? (
+                  <p className="muted">Unavailable note: {instrument.statusNote}</p>
+                ) : null}
                 {nextReservation ? (
                   <p className="muted">
-                    Next booking: {nextReservation.startAt.toLocaleDateString("en-US")} at{" "}
-                    {nextReservation.startAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    Next booking: {formatDateTime(nextReservation.startAt)}
                   </p>
                 ) : null}
               </Link>

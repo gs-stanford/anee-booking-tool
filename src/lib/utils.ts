@@ -1,3 +1,5 @@
+import { getLabTimeZone } from "@/lib/lab-time";
+
 export function cn(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
@@ -19,33 +21,38 @@ export function startOfWeek(date: Date) {
 export function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
-    timeStyle: "short"
+    timeStyle: "short",
+    timeZone: getLabTimeZone()
   }).format(date);
 }
 
 export function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium"
+    dateStyle: "medium",
+    timeZone: getLabTimeZone()
   }).format(date);
 }
 
 export function formatTime(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone: getLabTimeZone()
   }).format(date);
 }
 
 export function formatShortDay(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
-    weekday: "short"
+    weekday: "short",
+    timeZone: getLabTimeZone()
   }).format(date);
 }
 
 export function formatMonthDay(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
-    day: "numeric"
+    day: "numeric",
+    timeZone: getLabTimeZone()
   }).format(date);
 }
 

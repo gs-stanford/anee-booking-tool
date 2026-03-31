@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { Role } from "@prisma/client";
+import { InstrumentStatus, Role } from "@prisma/client";
 import { notFound } from "next/navigation";
 
 import {
   addMaintenanceEntryAction,
   cancelReservationAction,
+  claimInstrumentOwnershipAction,
   createReservationAction,
   deleteInstrumentAction,
   deleteManualAction,
+  updateInstrumentStatusAction,
   updateReservationAction,
   uploadManualAction
 } from "@/app/actions";
@@ -16,13 +18,21 @@ import { Notice } from "@/components/notice";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
-  addDays,
+  formatDateKeyMonthDay,
+  formatDateKeyShortDay,
+  getLabDateKey,
+  getLabTimeKey,
+  getStartOfLabWeekDateKey,
+  parseLabDateTime,
+  shiftDateString,
+  timeKeyToSlot
+} from "@/lib/lab-time";
+import {
   formatDate,
   formatDateTime,
+  formatTime,
   getNotice,
-  getSingleParam,
-  startOfWeek,
-  toDateInputValue
+  getSingleParam
 } from "@/lib/utils";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -41,8 +51,19 @@ export default async function InstrumentDetailPage({
   const reservationId = getSingleParam(resolvedSearchParams, "reservationId");
   const parsedWeekOffset = Number(weekParam ?? "0");
   const weekOffset = Number.isFinite(parsedWeekOffset) ? Math.max(Math.min(parsedWeekOffset, 24), -24) : 0;
-  const weekStart = startOfWeek(addDays(new Date(), weekOffset * 7));
-  const weekEnd = addDays(weekStart, 7);
+  const todayDateKey = getLabDateKey(new Date());
+  const weekStartDate = shiftDateString(getStartOfLabWeekDateKey(new Date()), weekOffset * 7);
+  const weekEnd = parseLabDateTime(shiftDateString(weekStartDate, 7), "00:00");
+  const weekStart = parseLabDateTime(weekStartDate, "00:00");
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = shiftDateString(weekStartDate, index);
+
+    return {
+      date,
+      shortDay: formatDateKeyShortDay(date),
+      monthDay: formatDateKeyMonthDay(date)
+    };
+  });
 
   const instrument = await db.instrument.findUnique({
     where: {
@@ -77,7 +98,8 @@ export default async function InstrumentDetailPage({
         include: {
           user: true
         }
-      }
+      },
+      owner: true
     }
   });
 
@@ -102,8 +124,37 @@ export default async function InstrumentDetailPage({
   });
 
   const notice = getNotice(resolvedSearchParams);
+  const composeDateParam = getSingleParam(resolvedSearchParams, "composeDate");
   const composeDate =
-    getSingleParam(resolvedSearchParams, "composeDate") ?? toDateInputValue(weekStart);
+    composeDateParam && weekDays.some((day) => day.date === composeDateParam)
+      ? composeDateParam
+      : weekDays.some((day) => day.date === todayDateKey)
+        ? todayDateKey
+        : weekDays[0].date;
+  const instrumentUnowned = !instrument.ownerId;
+  const canManageInstrument = user.role === Role.ADMIN || instrument.ownerId === user.id;
+  const statusLabel = instrument.status === InstrumentStatus.AVAILABLE ? "Available" : "Unavailable";
+  const serializeReservation = (reservation: (typeof instrument.reservations)[number]) => {
+    const startTime = getLabTimeKey(reservation.startAt);
+    const endDateKey = getLabDateKey(reservation.endAt);
+    const endTimeBase = getLabTimeKey(reservation.endAt);
+    const endTime = endDateKey !== getLabDateKey(reservation.startAt) && endTimeBase === "00:00" ? "24:00" : endTimeBase;
+
+    return {
+      id: reservation.id,
+      userId: reservation.userId,
+      date: getLabDateKey(reservation.startAt),
+      startSlot: timeKeyToSlot(startTime),
+      endSlot: timeKeyToSlot(endTime),
+      timeRangeLabel: `${formatDateTime(reservation.startAt)} to ${formatDateTime(reservation.endAt)}`,
+      startTimeLabel: formatTime(reservation.startAt),
+      endTimeLabel: formatTime(reservation.endAt),
+      purpose: reservation.purpose,
+      user: {
+        name: reservation.user.name
+      }
+    };
+  };
 
   return (
     <div className="detail-grid">
@@ -116,13 +167,14 @@ export default async function InstrumentDetailPage({
             <h1>{instrument.name}</h1>
             <div className="meta">
               <span>{instrument.location}</span>
-              <span>{instrument.status}</span>
+              <span>{statusLabel}</span>
+              <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
               <span>{instrument.manuals.length} manual(s)</span>
             </div>
           </div>
-          {user.role === Role.ADMIN ? (
+          {canManageInstrument ? (
             <div className="inline-actions">
-              <span className="tag">Admin controls available below</span>
+              <span className="tag">{user.role === Role.ADMIN ? "Admin or owner controls" : "Owner controls"}</span>
               <form action={deleteInstrumentAction}>
                 <input type="hidden" name="instrumentId" value={instrument.id} />
                 <button className="button button-ghost button-small" type="submit">
@@ -136,6 +188,11 @@ export default async function InstrumentDetailPage({
         </div>
 
         <p>{instrument.description}</p>
+        {instrument.status === InstrumentStatus.UNAVAILABLE && instrument.statusNote ? (
+          <p className="muted">
+            <strong>Unavailable note:</strong> {instrument.statusNote}
+          </p>
+        ) : null}
         {notice ? <Notice type={notice.type} message={notice.message} /> : null}
       </section>
 
@@ -155,34 +212,69 @@ export default async function InstrumentDetailPage({
           instrumentId={instrument.id}
           isAdmin={user.role === Role.ADMIN}
           key={`${weekOffset}-${composeDate}-${reservationId ?? "new"}`}
-          reservations={instrument.reservations.map((reservation) => ({
-            id: reservation.id,
-            userId: reservation.userId,
-            startAt: reservation.startAt.toISOString(),
-            endAt: reservation.endAt.toISOString(),
-            purpose: reservation.purpose,
-            user: {
-              name: reservation.user.name
-            }
-          }))}
+          reservations={instrument.reservations.map(serializeReservation)}
           selectedReservationId={reservationId}
-          upcomingReservations={upcomingReservations.map((reservation) => ({
-            id: reservation.id,
-            userId: reservation.userId,
-            startAt: reservation.startAt.toISOString(),
-            endAt: reservation.endAt.toISOString(),
-            purpose: reservation.purpose,
-            user: {
-              name: reservation.user.name
-            }
-          }))}
+          upcomingReservations={upcomingReservations.map(serializeReservation)}
           updateAction={updateReservationAction}
           weekOffset={weekOffset}
-          weekStart={weekStart.toISOString()}
+          weekDays={weekDays}
         />
       </section>
 
       <div className="instrument-support-grid" style={{ gridColumn: "1 / -1" }}>
+        <section className="panel">
+          <div className="section-head">
+            <div>
+              <h2>Instrument availability</h2>
+              <p className="muted">
+                Keep the status current so labmates know whether they can rely on this instrument.
+              </p>
+            </div>
+          </div>
+
+          <div className="meta" style={{ marginBottom: 18 }}>
+            <span>Current status: {statusLabel}</span>
+            {instrument.statusNote ? <span>{instrument.statusNote}</span> : null}
+          </div>
+
+          {canManageInstrument ? (
+            <form action={updateInstrumentStatusAction} className="form-grid">
+              <input type="hidden" name="instrumentId" value={instrument.id} />
+              <div className="form-grid two-up">
+                <div className="field">
+                  <label htmlFor="instrumentStatus">Status</label>
+                  <select id="instrumentStatus" name="status" defaultValue={instrument.status}>
+                    <option value={InstrumentStatus.AVAILABLE}>Available</option>
+                    <option value={InstrumentStatus.UNAVAILABLE}>Unavailable</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="statusNote">Unavailable note</label>
+                  <input
+                    defaultValue={instrument.statusNote ?? ""}
+                    id="statusNote"
+                    name="statusNote"
+                    placeholder="Out for service, on campaign, loaned out, broken, etc."
+                  />
+                </div>
+              </div>
+
+              <button className="button button-secondary" type="submit">
+                Update availability
+              </button>
+            </form>
+          ) : instrumentUnowned ? (
+            <form action={claimInstrumentOwnershipAction} className="form-grid">
+              <input type="hidden" name="instrumentId" value={instrument.id} />
+              <button className="button button-secondary" type="submit">
+                Claim ownership
+              </button>
+            </form>
+          ) : (
+            <p className="muted">Only the instrument owner or an admin can change availability or delete this record.</p>
+          )}
+        </section>
+
         <section className="panel">
           <div className="section-head">
             <div>

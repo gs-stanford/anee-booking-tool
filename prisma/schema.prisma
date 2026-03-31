@@ -14,8 +14,7 @@ enum Role {
 
 enum InstrumentStatus {
   AVAILABLE
-  MAINTENANCE
-  OFFLINE
+  UNAVAILABLE
 }
 
 enum SafetyMaterialFlow {
@@ -29,6 +28,7 @@ model User {
   email              String             @unique
   passwordHash       String
   role               Role               @default(MEMBER)
+  ownedInstruments   Instrument[]       @relation("InstrumentOwner")
   reservations       Reservation[]
   maintenanceEntries MaintenanceEntry[] @relation("MaintenancePerformedBy")
   safetyMaterialLogs SafetyMaterialLog[] @relation("SafetyMaterialLoggedBy")
@@ -42,11 +42,16 @@ model Instrument {
   location           String
   description        String
   status             InstrumentStatus   @default(AVAILABLE)
+  statusNote         String?
+  ownerId            String?
+  owner              User?              @relation("InstrumentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   manuals            Manual[]
   maintenanceEntries MaintenanceEntry[]
   reservations       Reservation[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+
+  @@index([ownerId])
 }
 
 model Manual {

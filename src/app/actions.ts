@@ -51,12 +51,39 @@ const passwordChangeSchema = z
     path: ["confirmPassword"]
   });
 
-const instrumentSchema = z.object({
-  name: z.string().trim().min(2),
-  location: z.string().trim().min(2),
-  description: z.string().trim().min(10),
-  status: z.nativeEnum(InstrumentStatus)
-});
+const instrumentSchema = z
+  .object({
+    name: z.string().trim().min(2),
+    location: z.string().trim().min(2),
+    description: z.string().trim().min(10),
+    status: z.nativeEnum(InstrumentStatus),
+    statusNote: z.string().trim().optional()
+  })
+  .superRefine((data, ctx) => {
+    if (data.status === InstrumentStatus.UNAVAILABLE && !data.statusNote) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please explain why the instrument is unavailable.",
+        path: ["statusNote"]
+      });
+    }
+  });
+
+const instrumentStatusSchema = z
+  .object({
+    instrumentId: z.string().min(1),
+    status: z.nativeEnum(InstrumentStatus),
+    statusNote: z.string().trim().optional()
+  })
+  .superRefine((data, ctx) => {
+    if (data.status === InstrumentStatus.UNAVAILABLE && !data.statusNote) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please add a note when an instrument is unavailable.",
+        path: ["statusNote"]
+      });
+    }
+  });
 
 const maintenanceSchema = z.object({
   instrumentId: z.string().min(1),
@@ -122,6 +149,29 @@ async function removeFileIfPresent(filePath: string) {
       throw error;
     }
   }
+}
+
+async function getManagedInstrument(instrumentId: string, userId: string, role: Role) {
+  const instrument = await db.instrument.findUnique({
+    where: {
+      id: instrumentId
+    },
+    include: {
+      manuals: true
+    }
+  });
+
+  if (!instrument) {
+    return null;
+  }
+
+  const canManage = role === Role.ADMIN || instrument.ownerId === userId;
+
+  if (!canManage) {
+    return null;
+  }
+
+  return instrument;
 }
 
 export async function loginAction(formData: FormData) {
@@ -281,13 +331,14 @@ export async function changePasswordAction(formData: FormData) {
 }
 
 export async function createInstrumentAction(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
 
   const parsed = instrumentSchema.safeParse({
     name: formData.get("name"),
     location: formData.get("location"),
     description: formData.get("description"),
-    status: formData.get("status")
+    status: formData.get("status"),
+    statusNote: formData.get("statusNote") || undefined
   });
 
   if (!parsed.success) {
@@ -295,11 +346,96 @@ export async function createInstrumentAction(formData: FormData) {
   }
 
   const instrument = await db.instrument.create({
-    data: parsed.data
+    data: {
+      ...parsed.data,
+      statusNote: parsed.data.status === InstrumentStatus.UNAVAILABLE ? parsed.data.statusNote : null,
+      ownerId: user.id
+    }
   });
 
+  revalidatePath("/");
   revalidatePath("/instruments");
   redirect(withNotice(`/instruments/${instrument.id}`, "success", "Instrument added."));
+}
+
+export async function updateInstrumentStatusAction(formData: FormData) {
+  const user = await requireUser();
+  const instrumentId = String(formData.get("instrumentId") ?? "");
+  const returnTo = getReturnTo(formData, `/instruments/${instrumentId}`);
+
+  const parsed = instrumentStatusSchema.safeParse({
+    instrumentId,
+    status: formData.get("status"),
+    statusNote: formData.get("statusNote") || undefined
+  });
+
+  if (!parsed.success) {
+    redirect(withNotice(returnTo, "error", "Please choose a valid status and note."));
+  }
+
+  const instrument = await getManagedInstrument(parsed.data.instrumentId, user.id, user.role);
+
+  if (!instrument) {
+    redirect(withNotice("/instruments", "error", "You do not have permission to update that instrument."));
+  }
+
+  await db.instrument.update({
+    where: {
+      id: parsed.data.instrumentId
+    },
+    data: {
+      status: parsed.data.status,
+      statusNote: parsed.data.status === InstrumentStatus.UNAVAILABLE ? parsed.data.statusNote : null
+    }
+  });
+
+  revalidatePath("/");
+  revalidatePath("/instruments");
+  revalidatePath(`/instruments/${parsed.data.instrumentId}`);
+  redirect(withNotice(returnTo, "success", "Instrument status updated."));
+}
+
+export async function claimInstrumentOwnershipAction(formData: FormData) {
+  const user = await requireUser();
+  const instrumentId = String(formData.get("instrumentId") ?? "");
+  const returnTo = getReturnTo(formData, `/instruments/${instrumentId}`);
+
+  if (!instrumentId) {
+    redirect(withNotice("/instruments", "error", "Instrument details were missing."));
+  }
+
+  const instrument = await db.instrument.findUnique({
+    where: {
+      id: instrumentId
+    },
+    select: {
+      id: true,
+      name: true,
+      ownerId: true
+    }
+  });
+
+  if (!instrument) {
+    redirect(withNotice("/instruments", "error", "Instrument not found."));
+  }
+
+  if (instrument.ownerId && instrument.ownerId !== user.id) {
+    redirect(withNotice(returnTo, "error", "This instrument already has an owner."));
+  }
+
+  await db.instrument.update({
+    where: {
+      id: instrumentId
+    },
+    data: {
+      ownerId: user.id
+    }
+  });
+
+  revalidatePath("/");
+  revalidatePath("/instruments");
+  revalidatePath(`/instruments/${instrumentId}`);
+  redirect(withNotice(returnTo, "success", `You now own ${instrument.name}.`));
 }
 
 export async function uploadManualAction(formData: FormData) {
@@ -377,7 +513,7 @@ export async function deleteManualAction(formData: FormData) {
 }
 
 export async function deleteInstrumentAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireUser();
 
   const instrumentId = String(formData.get("instrumentId") ?? "");
 
@@ -385,17 +521,10 @@ export async function deleteInstrumentAction(formData: FormData) {
     redirect(withNotice("/instruments", "error", "Instrument details were missing."));
   }
 
-  const instrument = await db.instrument.findUnique({
-    where: {
-      id: instrumentId
-    },
-    include: {
-      manuals: true
-    }
-  });
+  const instrument = await getManagedInstrument(instrumentId, user.id, user.role);
 
   if (!instrument) {
-    redirect(withNotice("/instruments", "error", "Instrument not found."));
+    redirect(withNotice("/instruments", "error", "You do not have permission to delete that instrument."));
   }
 
   await Promise.all(instrument.manuals.map((manual) => removeFileIfPresent(manual.filePath)));
@@ -411,6 +540,7 @@ export async function deleteInstrumentAction(formData: FormData) {
     force: true
   });
 
+  revalidatePath("/");
   revalidatePath("/instruments");
   redirect(withNotice("/instruments", "success", `Deleted ${instrument.name}.`));
 }
@@ -490,6 +620,7 @@ export async function createReservationAction(formData: FormData) {
     }
   });
 
+  revalidatePath("/");
   revalidatePath(`/instruments/${parsed.data.instrumentId}`);
   redirect(withNotice(returnTo, "success", "Reservation created."));
 }
@@ -550,6 +681,7 @@ export async function updateReservationAction(formData: FormData) {
     }
   });
 
+  revalidatePath("/");
   revalidatePath(`/instruments/${parsed.data.instrumentId}`);
   redirect(withNotice(returnTo, "success", "Reservation updated."));
 }
@@ -576,6 +708,7 @@ export async function cancelReservationAction(formData: FormData) {
     }
   });
 
+  revalidatePath("/");
   revalidatePath(`/instruments/${instrumentId}`);
   redirect(withNotice(returnTo, "success", "Reservation canceled."));
 }
