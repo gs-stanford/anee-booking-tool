@@ -1,6 +1,5 @@
-import { InstrumentStatus } from "@prisma/client";
-
 import { createInstrumentAction } from "@/app/actions";
+import { InstrumentStatusFields } from "@/components/instrument-status-fields";
 import { Notice } from "@/components/notice";
 import { getNotice } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
@@ -39,22 +38,7 @@ export default async function NewInstrumentPage({
           </div>
         </div>
 
-        <div className="field">
-          <label htmlFor="status">Status</label>
-          <select id="status" name="status" defaultValue={InstrumentStatus.AVAILABLE}>
-            <option value={InstrumentStatus.AVAILABLE}>Available</option>
-            <option value={InstrumentStatus.UNAVAILABLE}>Unavailable</option>
-          </select>
-        </div>
-
-        <div className="field">
-          <label htmlFor="statusNote">Unavailable note</label>
-          <input
-            id="statusNote"
-            name="statusNote"
-            placeholder="Out for service, on campaign, loaned out, broken, etc."
-          />
-        </div>
+        <InstrumentStatusFields />
 
         <div className="field">
           <label htmlFor="description">Description and usage notes</label>

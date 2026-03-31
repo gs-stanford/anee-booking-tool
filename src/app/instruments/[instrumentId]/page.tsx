@@ -15,6 +15,7 @@ import {
 } from "@/app/actions";
 import { BookingCalendar } from "@/components/booking-calendar";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { InstrumentStatusFields } from "@/components/instrument-status-fields";
 import { Notice } from "@/components/notice";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -252,22 +253,12 @@ export default async function InstrumentDetailPage({
               <form action={updateInstrumentStatusAction} className="form-grid">
                 <input type="hidden" name="instrumentId" value={instrument.id} />
                 <div className="form-grid two-up">
-                  <div className="field">
-                    <label htmlFor="instrumentStatus">Status</label>
-                    <select id="instrumentStatus" name="status" defaultValue={instrument.status}>
-                      <option value={InstrumentStatus.AVAILABLE}>Available</option>
-                      <option value={InstrumentStatus.UNAVAILABLE}>Unavailable</option>
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="statusNote">Unavailable note</label>
-                    <input
-                      defaultValue={instrument.statusNote ?? ""}
-                      id="statusNote"
-                      name="statusNote"
-                      placeholder="Out for service, on campaign, loaned out, broken, etc."
-                    />
-                  </div>
+                  <InstrumentStatusFields
+                    defaultNote={instrument.statusNote ?? ""}
+                    defaultStatus={instrument.status}
+                    noteName="statusNote"
+                    statusName="status"
+                  />
                 </div>
 
                 <button className="button button-secondary" type="submit">
