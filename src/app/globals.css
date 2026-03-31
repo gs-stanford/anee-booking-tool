@@ -607,7 +607,7 @@ td {
 
 .calendar-time-column {
   display: grid;
-  grid-template-rows: 64px repeat(18, 72px);
+  grid-template-rows: 74px repeat(18, 88px);
   gap: 0;
 }
 
@@ -650,9 +650,9 @@ td {
     repeating-linear-gradient(
       180deg,
       rgba(140, 21, 21, 0.02) 0,
-      rgba(140, 21, 21, 0.02) 72px,
-      rgba(46, 45, 41, 0.045) 72px,
-      rgba(46, 45, 41, 0.045) 73px
+      rgba(140, 21, 21, 0.02) 88px,
+      rgba(46, 45, 41, 0.045) 88px,
+      rgba(46, 45, 41, 0.045) 89px
     ),
     rgba(255, 255, 255, 0.78);
   overflow: hidden;
