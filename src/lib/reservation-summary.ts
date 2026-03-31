@@ -1,19 +1,10 @@
 import { formatDateTime, formatTime } from "@/lib/utils";
-import { getLabDateKey, getLabTimeKey, shiftDateString } from "@/lib/lab-time";
+import { getLabDateKey, shiftDateString } from "@/lib/lab-time";
+import { isAllDayReservation, type ReservationCalendarSource } from "@/lib/reservation-calendar";
 
-type ReservationSummarySource = {
+export type ReservationSummarySource = ReservationCalendarSource & {
   id: string;
   purpose: string | null;
-  startAt: Date;
-  endAt: Date;
-  instrument: {
-    id: string;
-    name: string;
-  };
-  user: {
-    id: string;
-    name: string;
-  };
 };
 
 export type ReservationSummary = {
@@ -70,14 +61,6 @@ function formatDateRange(startDate: string, endDate: string) {
   }
 
   return `${formatDateKey(startDate)} to ${formatDateKey(endDate)}`;
-}
-
-function isAllDayReservation(reservation: ReservationSummarySource) {
-  return (
-    getLabTimeKey(reservation.startAt) === "06:00" &&
-    getLabTimeKey(reservation.endAt) === "00:00" &&
-    getLabDateKey(reservation.endAt) === shiftDateString(getLabDateKey(reservation.startAt), 1)
-  );
 }
 
 export function summarizeReservations(reservations: ReservationSummarySource[]) {

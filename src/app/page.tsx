@@ -1,27 +1,45 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { SharedReservationsOverview } from "@/components/shared-reservations-overview";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { serializeReservationCalendarItems } from "@/lib/reservation-calendar";
 import { summarizeReservations } from "@/lib/reservation-summary";
 
 export const dynamic = "force-dynamic";
 
 async function loadHomeData() {
   try {
-    const [instrumentCount, userCount, upcomingReservations, instruments] = await Promise.all([
+    const reservationWindowStart = new Date();
+    reservationWindowStart.setDate(1);
+    reservationWindowStart.setHours(0, 0, 0, 0);
+    const reservationWindowEnd = new Date(reservationWindowStart);
+    reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 6);
+
+    const [instrumentCount, userCount, upcomingReservationCount, reservationCalendarReservations, instruments] =
+      await Promise.all([
       db.instrument.count(),
       db.user.count(),
-      db.reservation.findMany({
+      db.reservation.count({
         where: {
           endAt: {
             gte: new Date()
+          }
+        }
+      }),
+      db.reservation.findMany({
+        where: {
+          endAt: {
+            gte: reservationWindowStart
+          },
+          startAt: {
+            lt: reservationWindowEnd
           }
         },
         orderBy: {
           startAt: "asc"
         },
-        take: 12,
         include: {
           instrument: true,
           user: true
@@ -35,9 +53,13 @@ async function loadHomeData() {
       })
     ]);
 
+    const upcomingReservations = reservationCalendarReservations.filter((reservation) => reservation.endAt >= new Date());
+
     return {
       instrumentCount,
       userCount,
+      upcomingReservationCount,
+      reservationCalendarReservations,
       upcomingReservations,
       instruments
     };
@@ -46,6 +68,8 @@ async function loadHomeData() {
     return {
       instrumentCount: 0,
       userCount: 0,
+      upcomingReservationCount: 0,
+      reservationCalendarReservations: [],
       upcomingReservations: [],
       instruments: []
     };
@@ -54,8 +78,16 @@ async function loadHomeData() {
 
 export default async function HomePage() {
   const [user, data] = await Promise.all([getCurrentUser(), loadHomeData()]);
-  const { instrumentCount, userCount, upcomingReservations, instruments } = data;
-  const reservationSummaries = summarizeReservations(upcomingReservations).slice(0, 5);
+  const {
+    instrumentCount,
+    userCount,
+    upcomingReservationCount,
+    reservationCalendarReservations,
+    upcomingReservations,
+    instruments
+  } = data;
+  const reservationSummaries = summarizeReservations(upcomingReservations).slice(0, 8);
+  const reservationCalendarItems = serializeReservationCalendarItems(reservationCalendarReservations);
   const getStatusClassName = (status: string) =>
     status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
 
@@ -107,7 +139,7 @@ export default async function HomePage() {
         </article>
         <article className="panel">
           <p className="muted">Upcoming reservations</p>
-          <div className="stat">{upcomingReservations.length}</div>
+          <div className="stat">{upcomingReservationCount}</div>
         </article>
       </section>
 
@@ -141,22 +173,10 @@ export default async function HomePage() {
           <div className="section-head">
             <h2>Upcoming reservations</h2>
           </div>
-          <div className="list">
-            {reservationSummaries.length === 0 ? (
-              <p className="muted">No reservations scheduled yet.</p>
-            ) : (
-              reservationSummaries.map((reservation) => (
-                <div className="reservation-row" key={reservation.id}>
-                  <strong>{reservation.instrumentName}</strong>
-                  <div className="meta">
-                    <span>{reservation.userName}</span>
-                    <span>{reservation.label}</span>
-                  </div>
-                  {reservation.purpose ? <p>{reservation.purpose}</p> : null}
-                </div>
-              ))
-            )}
-          </div>
+          <SharedReservationsOverview
+            calendarItems={reservationCalendarItems}
+            summaries={reservationSummaries}
+          />
         </article>
       </section>
 

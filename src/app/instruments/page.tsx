@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 import { Notice } from "@/components/notice";
+import { SharedReservationsOverview } from "@/components/shared-reservations-overview";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { serializeReservationCalendarItems } from "@/lib/reservation-calendar";
+import { summarizeReservations } from "@/lib/reservation-summary";
 import { formatDateTime, getNotice } from "@/lib/utils";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -13,80 +16,125 @@ export default async function InstrumentsPage({
   searchParams?: SearchParams | Promise<SearchParams>;
 }) {
   await requireUser();
-  const instruments = await db.instrument.findMany({
-    orderBy: {
-      name: "asc"
-    },
-    include: {
-      owner: true,
-      manuals: true,
-      reservations: {
-        where: {
-          endAt: { gte: new Date() }
-        },
-        take: 1,
-        orderBy: {
-          startAt: "asc"
+  const reservationWindowStart = new Date();
+  reservationWindowStart.setDate(1);
+  reservationWindowStart.setHours(0, 0, 0, 0);
+  const reservationWindowEnd = new Date(reservationWindowStart);
+  reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 6);
+
+  const [instruments, sharedReservations] = await Promise.all([
+    db.instrument.findMany({
+      orderBy: {
+        name: "asc"
+      },
+      include: {
+        owner: true,
+        manuals: true,
+        reservations: {
+          where: {
+            endAt: { gte: new Date() }
+          },
+          take: 1,
+          orderBy: {
+            startAt: "asc"
+          }
         }
       }
-    }
-  });
+    }),
+    db.reservation.findMany({
+      where: {
+        endAt: {
+          gte: reservationWindowStart
+        },
+        startAt: {
+          lt: reservationWindowEnd
+        }
+      },
+      orderBy: {
+        startAt: "asc"
+      },
+      include: {
+        instrument: true,
+        user: true
+      }
+    })
+  ]);
 
   const notice = getNotice(await searchParams);
+  const sharedReservationSummaries = summarizeReservations(
+    sharedReservations.filter((reservation) => reservation.endAt >= new Date())
+  ).slice(0, 10);
+  const sharedReservationCalendarItems = serializeReservationCalendarItems(sharedReservations);
   const getStatusClassName = (status: string) =>
     status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
 
   return (
-    <section className="panel">
-      <div className="section-head">
-        <div>
-          <h1>Instrument hub</h1>
-          <p className="muted">Browse instruments, open manuals, review maintenance history, and reserve time slots.</p>
+    <div className="page-stack">
+      <section className="panel">
+        <div className="section-head">
+          <div>
+            <h1>Instrument hub</h1>
+            <p className="muted">Browse instruments, open manuals, review maintenance history, and reserve time slots.</p>
+          </div>
+          <Link className="button button-primary" href="/instruments/new">
+            Add new instrument
+          </Link>
         </div>
-        <Link className="button button-primary" href="/instruments/new">
-          Add new instrument
-        </Link>
-      </div>
 
-      {notice ? <Notice type={notice.type} message={notice.message} /> : null}
+        {notice ? <Notice type={notice.type} message={notice.message} /> : null}
 
-      <div className="list">
-        {instruments.length === 0 ? (
-          <p className="muted">No instruments have been added yet.</p>
-        ) : (
-          instruments.map((instrument) => {
-            const nextReservation = instrument.reservations[0];
+        <SharedReservationsOverview
+          calendarItems={sharedReservationCalendarItems}
+          summaries={sharedReservationSummaries}
+        />
+      </section>
 
-            return (
-              <Link className="instrument-card" href={`/instruments/${instrument.id}`} key={instrument.id}>
-                <div className="section-head">
-                  <div>
-                    <h3>{instrument.name}</h3>
-                    <div className="meta">
-                      <span>{instrument.location}</span>
-                      <span className={getStatusClassName(instrument.status)}>
-                        {instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}
-                      </span>
-                      <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
-                      <span>{instrument.manuals.length} manual(s)</span>
+      <section className="panel">
+        <div className="section-head">
+          <div>
+            <h2>Instrument list</h2>
+            <p className="muted">Open any instrument to manage manuals, maintenance, and detailed booking.</p>
+          </div>
+        </div>
+
+        <div className="list">
+          {instruments.length === 0 ? (
+            <p className="muted">No instruments have been added yet.</p>
+          ) : (
+            instruments.map((instrument) => {
+              const nextReservation = instrument.reservations[0];
+
+              return (
+                <Link className="instrument-card" href={`/instruments/${instrument.id}`} key={instrument.id}>
+                  <div className="section-head">
+                    <div>
+                      <h3>{instrument.name}</h3>
+                      <div className="meta">
+                        <span>{instrument.location}</span>
+                        <span className={getStatusClassName(instrument.status)}>
+                          {instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}
+                        </span>
+                        <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
+                        <span>{instrument.manuals.length} manual(s)</span>
+                      </div>
                     </div>
+                    <span className="tag">{nextReservation ? "Reserved soon" : "Open schedule"}</span>
                   </div>
-                  <span className="tag">{nextReservation ? "Reserved soon" : "Open schedule"}</span>
-                </div>
-                <p>{instrument.description}</p>
-                {instrument.status === "UNAVAILABLE" && instrument.statusNote ? (
-                  <p className="muted">Unavailable note: {instrument.statusNote}</p>
-                ) : null}
-                {nextReservation ? (
-                  <p className="muted">
-                    Next booking: {formatDateTime(nextReservation.startAt)}
-                  </p>
-                ) : null}
-              </Link>
-            );
-          })
-        )}
-      </div>
-    </section>
+                  <p>{instrument.description}</p>
+                  {instrument.status === "UNAVAILABLE" && instrument.statusNote ? (
+                    <p className="muted">Unavailable note: {instrument.statusNote}</p>
+                  ) : null}
+                  {nextReservation ? (
+                    <p className="muted">
+                      Next booking: {formatDateTime(nextReservation.startAt)}
+                    </p>
+                  ) : null}
+                </Link>
+              );
+            })
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
