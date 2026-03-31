@@ -52,14 +52,14 @@ export function timeKeyToSlot(time: string, startHour = 6, slotMinutes = 30) {
 
 export function formatDateKeyShortDay(date: string) {
   return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
+    weekday: "long",
     timeZone: "UTC"
   }).format(dateKeyToDisplayDate(date));
 }
 
 export function formatDateKeyMonthDay(date: string) {
   return new Intl.DateTimeFormat("en-US", {
-    month: "short",
+    month: "long",
     day: "numeric",
     timeZone: "UTC"
   }).format(dateKeyToDisplayDate(date));

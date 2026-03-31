@@ -219,12 +219,11 @@ export function BookingCalendar({
     setSelectionSource("grid");
   }
 
-  function handleAllDayToggle(enabled: boolean) {
-    setSelection(enabled ? fullDaySelection(selection.date) : defaultSelection(selection.date));
-
-    if (enabled) {
-      setSelectionSource(activeReservationId ? "reservation" : "grid");
-    }
+  function handleAllDaySelect(date: string) {
+    setActiveReservationId("");
+    setPurpose("");
+    setSelection(fullDaySelection(date));
+    setSelectionSource("grid");
   }
 
   const canSubmit = selectionSource === "grid" || activeReservationEditable;
@@ -283,6 +282,14 @@ export function BookingCalendar({
               >
                 <span>{day.shortDay}</span>
                 <strong>{day.monthDay}</strong>
+              </button>
+
+              <button
+                className={`calendar-all-day-button${selection.date === dayLabel && isAllDaySelection ? " calendar-all-day-button-active" : ""}`}
+                onClick={() => handleAllDaySelect(dayLabel)}
+                type="button"
+              >
+                All day
               </button>
 
               <div className="calendar-day-surface" style={{ height: `${TOTAL_SLOTS * SLOT_HEIGHT}px` }}>
@@ -370,17 +377,6 @@ export function BookingCalendar({
               </button>
             ) : null}
           </div>
-
-          <label className="checkbox-row" htmlFor="allDay">
-            <input
-              checked={isAllDaySelection}
-              id="allDay"
-              name="allDay"
-              onChange={(event) => handleAllDayToggle(event.target.checked)}
-              type="checkbox"
-            />
-            <span>All day</span>
-          </label>
 
           <div className="selection-summary">
             <span className="tag">

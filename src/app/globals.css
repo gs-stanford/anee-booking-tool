@@ -535,18 +535,6 @@ h4 {
   gap: 8px;
 }
 
-.checkbox-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  font-weight: 600;
-}
-
-.checkbox-row input {
-  width: 1rem;
-  height: 1rem;
-}
-
 .field label {
   font-weight: 600;
 }
@@ -649,14 +637,14 @@ td {
 
 .calendar-board {
   display: grid;
-  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: 96px repeat(7, minmax(0, 1fr));
+  gap: 10px;
   min-width: 0;
 }
 
 .calendar-time-column {
   display: grid;
-  grid-template-rows: 74px repeat(18, 88px);
+  grid-template-rows: 86px repeat(18, 88px);
   gap: 0;
 }
 
@@ -667,9 +655,13 @@ td {
 }
 
 .calendar-time-label {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   padding-top: 2px;
   font-size: 0.82rem;
   color: var(--muted);
+  text-align: center;
 }
 
 .calendar-day-column {
@@ -678,12 +670,48 @@ td {
 
 .calendar-day-header {
   display: grid;
-  gap: 4px;
-  padding: 14px 10px 12px;
+  gap: 6px;
+  min-height: 86px;
+  padding: 14px 14px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.82);
   margin-bottom: 10px;
+  text-align: left;
+}
+
+.calendar-day-header span {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.calendar-day-header strong {
+  font-size: 1.02rem;
+  line-height: 1.2;
+}
+
+.calendar-all-day-button {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 0.58rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.calendar-all-day-button:hover {
+  border-color: rgba(140, 21, 21, 0.22);
+  color: var(--cardinal);
+}
+
+.calendar-all-day-button-active {
+  border-color: rgba(140, 21, 21, 0.35);
+  background: rgba(140, 21, 21, 0.08);
+  color: var(--cardinal);
 }
 
 .calendar-day-header-active {
