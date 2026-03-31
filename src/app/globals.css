@@ -373,6 +373,12 @@ h4 {
   align-items: start;
 }
 
+.instrument-side-stack {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+}
+
 .booking-bottom-grid {
   grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
   align-items: start;

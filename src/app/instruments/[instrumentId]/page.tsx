@@ -222,58 +222,107 @@ export default async function InstrumentDetailPage({
       </section>
 
       <div className="instrument-support-grid" style={{ gridColumn: "1 / -1" }}>
-        <section className="panel">
-          <div className="section-head">
-            <div>
-              <h2>Instrument availability</h2>
-              <p className="muted">
-                Keep the status current so labmates know whether they can rely on this instrument.
-              </p>
-            </div>
-          </div>
-
-          <div className="meta" style={{ marginBottom: 18 }}>
-            <span>Current status: {statusLabel}</span>
-            {instrument.statusNote ? <span>{instrument.statusNote}</span> : null}
-          </div>
-
-          {canManageInstrument ? (
-            <form action={updateInstrumentStatusAction} className="form-grid">
-              <input type="hidden" name="instrumentId" value={instrument.id} />
-              <div className="form-grid two-up">
-                <div className="field">
-                  <label htmlFor="instrumentStatus">Status</label>
-                  <select id="instrumentStatus" name="status" defaultValue={instrument.status}>
-                    <option value={InstrumentStatus.AVAILABLE}>Available</option>
-                    <option value={InstrumentStatus.UNAVAILABLE}>Unavailable</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="statusNote">Unavailable note</label>
-                  <input
-                    defaultValue={instrument.statusNote ?? ""}
-                    id="statusNote"
-                    name="statusNote"
-                    placeholder="Out for service, on campaign, loaned out, broken, etc."
-                  />
-                </div>
+        <div className="instrument-side-stack">
+          <section className="panel">
+            <div className="section-head">
+              <div>
+                <h2>Instrument availability</h2>
+                <p className="muted">
+                  Keep the status current so labmates know whether they can rely on this instrument.
+                </p>
               </div>
+            </div>
 
-              <button className="button button-secondary" type="submit">
-                Update availability
-              </button>
-            </form>
-          ) : instrumentUnowned ? (
-            <form action={claimInstrumentOwnershipAction} className="form-grid">
+            <div className="meta" style={{ marginBottom: 18 }}>
+              <span>Current status: {statusLabel}</span>
+              {instrument.statusNote ? <span>{instrument.statusNote}</span> : null}
+            </div>
+
+            {canManageInstrument ? (
+              <form action={updateInstrumentStatusAction} className="form-grid">
+                <input type="hidden" name="instrumentId" value={instrument.id} />
+                <div className="form-grid two-up">
+                  <div className="field">
+                    <label htmlFor="instrumentStatus">Status</label>
+                    <select id="instrumentStatus" name="status" defaultValue={instrument.status}>
+                      <option value={InstrumentStatus.AVAILABLE}>Available</option>
+                      <option value={InstrumentStatus.UNAVAILABLE}>Unavailable</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="statusNote">Unavailable note</label>
+                    <input
+                      defaultValue={instrument.statusNote ?? ""}
+                      id="statusNote"
+                      name="statusNote"
+                      placeholder="Out for service, on campaign, loaned out, broken, etc."
+                    />
+                  </div>
+                </div>
+
+                <button className="button button-secondary" type="submit">
+                  Update availability
+                </button>
+              </form>
+            ) : instrumentUnowned ? (
+              <form action={claimInstrumentOwnershipAction} className="form-grid">
+                <input type="hidden" name="instrumentId" value={instrument.id} />
+                <button className="button button-secondary" type="submit">
+                  Claim ownership
+                </button>
+              </form>
+            ) : (
+              <p className="muted">Only the instrument owner or an admin can change availability or delete this record.</p>
+            )}
+          </section>
+
+          <section className="panel manuals-panel">
+            <div className="section-head">
+              <div>
+                <h2>Manuals</h2>
+                <p className="muted">Store instrument manuals as downloadable files tied directly to this instrument.</p>
+              </div>
+            </div>
+
+            <div className="list" style={{ marginBottom: 18 }}>
+              {instrument.manuals.length === 0 ? (
+                <p className="muted">No manual uploaded yet.</p>
+              ) : (
+                instrument.manuals.map((manual) => (
+                  <div className="sheet-row" key={manual.id}>
+                    <div className="section-head">
+                      <a href={`/api/manuals/${manual.id}`}>
+                        <h4>{manual.originalName}</h4>
+                      </a>
+                      <form action={deleteManualAction}>
+                        <input type="hidden" name="instrumentId" value={instrument.id} />
+                        <input type="hidden" name="manualId" value={manual.id} />
+                        <button className="button button-ghost button-small" type="submit">
+                          Remove file
+                        </button>
+                      </form>
+                    </div>
+                    <div className="meta">
+                      <span>Uploaded {formatDateTime(manual.uploadedAt)}</span>
+                      <a href={`/api/manuals/${manual.id}`}>Download</a>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form action={uploadManualAction} className="form-grid">
               <input type="hidden" name="instrumentId" value={instrument.id} />
+              <div className="field">
+                <label htmlFor="manual">Upload manual</label>
+                <input id="manual" name="manual" type="file" accept=".pdf,.doc,.docx" required />
+              </div>
               <button className="button button-secondary" type="submit">
-                Claim ownership
+                Save manual
               </button>
             </form>
-          ) : (
-            <p className="muted">Only the instrument owner or an admin can change availability or delete this record.</p>
-          )}
-        </section>
+          </section>
+        </div>
 
         <section className="panel">
           <div className="section-head">
@@ -343,53 +392,6 @@ export default async function InstrumentDetailPage({
 
             <button className="button button-secondary" type="submit">
               Add maintenance row
-            </button>
-          </form>
-        </section>
-
-        <section className="panel manuals-panel">
-          <div className="section-head">
-            <div>
-              <h2>Manuals</h2>
-              <p className="muted">Store instrument manuals as downloadable files tied directly to this instrument.</p>
-            </div>
-          </div>
-
-          <div className="list" style={{ marginBottom: 18 }}>
-            {instrument.manuals.length === 0 ? (
-              <p className="muted">No manual uploaded yet.</p>
-            ) : (
-              instrument.manuals.map((manual) => (
-                <div className="sheet-row" key={manual.id}>
-                  <div className="section-head">
-                    <a href={`/api/manuals/${manual.id}`}>
-                      <h4>{manual.originalName}</h4>
-                    </a>
-                    <form action={deleteManualAction}>
-                      <input type="hidden" name="instrumentId" value={instrument.id} />
-                      <input type="hidden" name="manualId" value={manual.id} />
-                      <button className="button button-ghost button-small" type="submit">
-                        Remove file
-                      </button>
-                    </form>
-                  </div>
-                  <div className="meta">
-                    <span>Uploaded {formatDateTime(manual.uploadedAt)}</span>
-                    <a href={`/api/manuals/${manual.id}`}>Download</a>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <form action={uploadManualAction} className="form-grid">
-            <input type="hidden" name="instrumentId" value={instrument.id} />
-            <div className="field">
-              <label htmlFor="manual">Upload manual</label>
-              <input id="manual" name="manual" type="file" accept=".pdf,.doc,.docx" required />
-            </div>
-            <button className="button button-secondary" type="submit">
-              Save manual
             </button>
           </form>
         </section>
