@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { formatDateTime } from "@/lib/utils";
+import { summarizeReservations } from "@/lib/reservation-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ async function loadHomeData() {
         orderBy: {
           startAt: "asc"
         },
-        take: 5,
+        take: 12,
         include: {
           instrument: true,
           user: true
@@ -55,6 +55,7 @@ async function loadHomeData() {
 export default async function HomePage() {
   const [user, data] = await Promise.all([getCurrentUser(), loadHomeData()]);
   const { instrumentCount, userCount, upcomingReservations, instruments } = data;
+  const reservationSummaries = summarizeReservations(upcomingReservations).slice(0, 5);
   const getStatusClassName = (status: string) =>
     status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
 
@@ -141,16 +142,15 @@ export default async function HomePage() {
             <h2>Upcoming reservations</h2>
           </div>
           <div className="list">
-            {upcomingReservations.length === 0 ? (
+            {reservationSummaries.length === 0 ? (
               <p className="muted">No reservations scheduled yet.</p>
             ) : (
-              upcomingReservations.map((reservation) => (
+              reservationSummaries.map((reservation) => (
                 <div className="reservation-row" key={reservation.id}>
-                  <strong>{reservation.instrument.name}</strong>
+                  <strong>{reservation.instrumentName}</strong>
                   <div className="meta">
-                    <span>{reservation.user.name}</span>
-                    <span>{formatDateTime(reservation.startAt)}</span>
-                    <span>{formatDateTime(reservation.endAt)}</span>
+                    <span>{reservation.userName}</span>
+                    <span>{reservation.label}</span>
                   </div>
                   {reservation.purpose ? <p>{reservation.purpose}</p> : null}
                 </div>
