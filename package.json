@@ -22,6 +22,7 @@
     "dotenv": "latest",
     "jose": "latest",
     "next": "latest",
+    "nodemailer": "^8.0.4",
     "react": "latest",
     "react-dom": "latest",
     "zod": "latest"
