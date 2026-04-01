@@ -553,6 +553,7 @@ h4 {
 }
 
 .month-calendar-chip {
+  display: block;
   width: 100%;
   overflow: hidden;
   white-space: nowrap;
@@ -563,6 +564,16 @@ h4 {
   font-size: 0.76rem;
   font-weight: 700;
   line-height: 1.2;
+  text-decoration: none;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+.month-calendar-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(46, 45, 41, 0.08);
 }
 
 .month-calendar-chip-all-day {

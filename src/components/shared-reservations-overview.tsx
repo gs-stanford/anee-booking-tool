@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { getStartOfLabWeekDateKey } from "@/lib/lab-time";
 import type { ReservationSummary } from "@/lib/reservation-summary";
 import type { ReservationCalendarItem } from "@/lib/reservation-calendar";
 
@@ -84,6 +85,30 @@ function buildMonthGrid(monthStart: Date) {
       inMonth: date.getUTCMonth() === month
     };
   });
+}
+
+function getWeekOffsetForDate(date: string) {
+  const currentWeekStart = getStartOfLabWeekDateKey(new Date());
+  const [currentYear, currentMonth, currentDay] = currentWeekStart.split("-").map(Number);
+  const [targetYear, targetMonth, targetDay] = date.split("-").map(Number);
+  const currentUtc = Date.UTC(currentYear, currentMonth - 1, currentDay);
+  const targetUtc = Date.UTC(targetYear, targetMonth - 1, targetDay);
+
+  return Math.round((targetUtc - currentUtc) / (7 * 24 * 60 * 60 * 1000));
+}
+
+function buildReservationLink(reservation: ReservationCalendarItem) {
+  const weekOffset = getWeekOffsetForDate(reservation.date);
+  const params = new URLSearchParams({
+    composeDate: reservation.date,
+    reservationId: reservation.id
+  });
+
+  if (weekOffset !== 0) {
+    params.set("week", String(weekOffset));
+  }
+
+  return `/instruments/${reservation.instrumentId}?${params.toString()}#booking-editor`;
 }
 
 export function SharedReservationsOverview({
@@ -301,8 +326,9 @@ export function SharedReservationsOverview({
                         const color = instrumentColors[reservation.instrumentId] ?? DISTINCT_INSTRUMENT_COLORS[0];
 
                         return (
-                          <div
+                          <Link
                             className="month-calendar-chip month-calendar-chip-all-day"
+                            href={buildReservationLink(reservation)}
                             key={reservation.id}
                             style={{
                               background: color.background,
@@ -312,7 +338,7 @@ export function SharedReservationsOverview({
                             title={`${reservation.instrumentName} • ${reservation.userName} (All day)`}
                           >
                             {reservation.instrumentName} • {reservation.userName}
-                          </div>
+                          </Link>
                         );
                       })}
                     </div>
@@ -322,8 +348,9 @@ export function SharedReservationsOverview({
                         const color = instrumentColors[reservation.instrumentId] ?? DISTINCT_INSTRUMENT_COLORS[0];
 
                         return (
-                          <div
+                          <Link
                             className="month-calendar-chip"
+                            href={buildReservationLink(reservation)}
                             key={reservation.id}
                             style={{
                               background: color.background,
@@ -333,7 +360,7 @@ export function SharedReservationsOverview({
                             title={`${reservation.instrumentName} • ${reservation.userName}`}
                           >
                             {reservation.instrumentName} • {reservation.userName}
-                          </div>
+                          </Link>
                         );
                       })}
                     </div>
