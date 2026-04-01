@@ -6,27 +6,46 @@ import { useMemo, useState } from "react";
 import type { ReservationSummary } from "@/lib/reservation-summary";
 import type { ReservationCalendarItem } from "@/lib/reservation-calendar";
 
+type InstrumentOption = {
+  id: string;
+  name: string;
+};
+
 type SharedReservationsOverviewProps = {
   summaries: ReservationSummary[];
   calendarItems: ReservationCalendarItem[];
   emptyMessage?: string;
   defaultView?: "list" | "calendar";
   calendarHref?: string;
+  instrumentOptions?: InstrumentOption[];
 };
 
 type OverviewView = "list" | "calendar";
 const MONTH_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DISTINCT_INSTRUMENT_COLORS = [
+  { background: "#eef6c8", border: "#b6cb2d", text: "#51620f" },
+  { background: "#dfeaff", border: "#6f97f7", text: "#244b9d" },
+  { background: "#fde0ea", border: "#ef7b9d", text: "#8f2045" },
+  { background: "#ffe7d1", border: "#ec9860", text: "#8a4a12" },
+  { background: "#dcf5f1", border: "#4bb9a7", text: "#14665a" },
+  { background: "#efe3ff", border: "#a174eb", text: "#583092" },
+  { background: "#ffe8bf", border: "#d6a437", text: "#735111" },
+  { background: "#e0f0ff", border: "#59a7df", text: "#1d5e91" },
+  { background: "#fbe0f8", border: "#da7fd0", text: "#83277c" },
+  { background: "#e4f7da", border: "#77bf57", text: "#376824" },
+  { background: "#ffe1db", border: "#eb7768", text: "#8b2f23" },
+  { background: "#e4ebff", border: "#8598f1", text: "#34489b" },
+  { background: "#f7ead7", border: "#d0a15d", text: "#75511d" },
+  { background: "#ddf7e8", border: "#59bc84", text: "#1f6b46" },
+  { background: "#f3e0ff", border: "#c07ae9", text: "#6d2995" },
+  { background: "#e1f6fb", border: "#5cbfd8", text: "#17697d" }
+];
 
-function getInstrumentColor(instrumentId: string) {
-  const hash = instrumentId.split("").reduce((total, character) => (total * 31 + character.charCodeAt(0)) % 360, 17);
-  const hue = hash;
-  const accentHue = (hue + 18) % 360;
-
-  return {
-    background: `linear-gradient(135deg, hsl(${hue} 75% 95%), hsl(${accentHue} 78% 90%))`,
-    border: `hsl(${hue} 62% 66%)`,
-    text: `hsl(${hue} 52% 28%)`
-  };
+function getInstrumentColorMap(instrumentOptions: InstrumentOption[]) {
+  return instrumentOptions.reduce<Record<string, (typeof DISTINCT_INSTRUMENT_COLORS)[number]>>((map, instrument, index) => {
+    map[instrument.id] = DISTINCT_INSTRUMENT_COLORS[index % DISTINCT_INSTRUMENT_COLORS.length];
+    return map;
+  }, {});
 }
 
 function getMonthStart(offset: number) {
@@ -72,16 +91,38 @@ export function SharedReservationsOverview({
   calendarItems,
   emptyMessage = "No reservations scheduled yet.",
   defaultView = "list",
-  calendarHref
+  calendarHref,
+  instrumentOptions
 }: SharedReservationsOverviewProps) {
   const [view, setView] = useState<OverviewView>(defaultView);
   const [monthOffset, setMonthOffset] = useState(0);
   const monthStart = getMonthStart(monthOffset);
   const monthKeyPrefix = toDateKey(monthStart).slice(0, 7);
   const viewOrder: OverviewView[] = defaultView === "calendar" ? ["calendar", "list"] : ["list", "calendar"];
+  const availableInstrumentOptions = useMemo(() => {
+    if (instrumentOptions && instrumentOptions.length > 0) {
+      return instrumentOptions;
+    }
+
+    const map = new Map<string, InstrumentOption>();
+    calendarItems.forEach((item) => {
+      if (!map.has(item.instrumentId)) {
+        map.set(item.instrumentId, {
+          id: item.instrumentId,
+          name: item.instrumentName
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [calendarItems, instrumentOptions]);
+  const [selectedInstrumentIds, setSelectedInstrumentIds] = useState<string[]>(
+    availableInstrumentOptions.map((instrument) => instrument.id)
+  );
 
   const reservationsByDay = useMemo(() => {
-    return calendarItems.reduce<Record<string, ReservationCalendarItem[]>>((map, reservation) => {
+    return calendarItems
+      .filter((reservation) => selectedInstrumentIds.includes(reservation.instrumentId))
+      .reduce<Record<string, ReservationCalendarItem[]>>((map, reservation) => {
       if (!map[reservation.date]) {
         map[reservation.date] = [];
       }
@@ -89,10 +130,18 @@ export function SharedReservationsOverview({
       map[reservation.date].push(reservation);
       return map;
     }, {});
-  }, [calendarItems]);
+  }, [calendarItems, selectedInstrumentIds]);
+
+  const instrumentColors = useMemo(
+    () => getInstrumentColorMap(availableInstrumentOptions),
+    [availableInstrumentOptions]
+  );
 
   const visibleGrid = buildMonthGrid(monthStart);
-  const visibleCount = calendarItems.filter((reservation) => reservation.date.startsWith(monthKeyPrefix)).length;
+  const visibleCount = calendarItems.filter(
+    (reservation) =>
+      selectedInstrumentIds.includes(reservation.instrumentId) && reservation.date.startsWith(monthKeyPrefix)
+  ).length;
 
   return (
     <div className="shared-reservations-overview">
@@ -158,12 +207,73 @@ export function SharedReservationsOverview({
         </div>
       ) : (
         <div className="shared-month-calendar">
-        <div className="section-head" style={{ marginBottom: 14 }}>
+          <div className="section-head" style={{ marginBottom: 14 }}>
             <div>
               <h3>{formatMonthHeading(monthStart)}</h3>
               <p className="muted">
-                {visibleCount === 0 ? "No bookings in this month yet." : `${visibleCount} booking${visibleCount === 1 ? "" : "s"} shown.`}
+                {visibleCount === 0
+                  ? "No bookings in this month yet."
+                  : `${visibleCount} booking${visibleCount === 1 ? "" : "s"} shown.`}
               </p>
+            </div>
+          </div>
+
+          <div className="calendar-filter-shell">
+            <div className="calendar-filter-toolbar">
+              <strong>Visible instruments</strong>
+              <div className="inline-actions">
+                <button
+                  className="button button-small button-ghost"
+                  onClick={() => setSelectedInstrumentIds(availableInstrumentOptions.map((instrument) => instrument.id))}
+                  type="button"
+                >
+                  Select all
+                </button>
+                <button
+                  className="button button-small button-ghost"
+                  onClick={() => setSelectedInstrumentIds([])}
+                  type="button"
+                >
+                  Clear all
+                </button>
+              </div>
+            </div>
+
+            <div className="calendar-filter-list">
+              {availableInstrumentOptions.map((instrument) => {
+                const color = instrumentColors[instrument.id];
+                const isSelected = selectedInstrumentIds.includes(instrument.id);
+
+                return (
+                  <button
+                    className={`calendar-filter-chip${isSelected ? " calendar-filter-chip-active" : ""}`}
+                    key={instrument.id}
+                    onClick={() =>
+                      setSelectedInstrumentIds((currentIds) =>
+                        currentIds.includes(instrument.id)
+                          ? currentIds.filter((instrumentId) => instrumentId !== instrument.id)
+                          : [...currentIds, instrument.id]
+                      )
+                    }
+                    style={
+                      isSelected
+                        ? {
+                            background: color.background,
+                            borderColor: color.border,
+                            color: color.text
+                          }
+                        : undefined
+                    }
+                    type="button"
+                  >
+                    <span
+                      className="calendar-filter-dot"
+                      style={{ background: color.border }}
+                    />
+                    {instrument.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -188,7 +298,7 @@ export function SharedReservationsOverview({
 
                     <div className="month-calendar-all-day-stack">
                       {allDayReservations.map((reservation) => {
-                        const color = getInstrumentColor(reservation.instrumentId);
+                        const color = instrumentColors[reservation.instrumentId] ?? DISTINCT_INSTRUMENT_COLORS[0];
 
                         return (
                           <div
@@ -209,7 +319,7 @@ export function SharedReservationsOverview({
 
                     <div className="month-calendar-booking-stack">
                       {timedReservations.map((reservation) => {
-                        const color = getInstrumentColor(reservation.instrumentId);
+                        const color = instrumentColors[reservation.instrumentId] ?? DISTINCT_INSTRUMENT_COLORS[0];
 
                         return (
                           <div

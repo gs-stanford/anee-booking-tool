@@ -134,6 +134,10 @@ export default async function InstrumentsPage({
         <SharedReservationsOverview
           calendarItems={sharedReservationCalendarItems}
           defaultView="calendar"
+          instrumentOptions={instruments.map((instrument) => ({
+            id: instrument.id,
+            name: instrument.name
+          }))}
           summaries={sharedReservationSummaries}
         />
       </section>
