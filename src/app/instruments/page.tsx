@@ -17,10 +17,11 @@ export default async function InstrumentsPage({
 }) {
   await requireUser();
   const reservationWindowStart = new Date();
+  reservationWindowStart.setMonth(reservationWindowStart.getMonth() - 6);
   reservationWindowStart.setDate(1);
   reservationWindowStart.setHours(0, 0, 0, 0);
   const reservationWindowEnd = new Date(reservationWindowStart);
-  reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 6);
+  reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 18);
 
   const [instruments, sharedReservations] = await Promise.all([
     db.instrument.findMany({

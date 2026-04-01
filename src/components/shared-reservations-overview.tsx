@@ -15,20 +15,18 @@ type SharedReservationsOverviewProps = {
 };
 
 type OverviewView = "list" | "calendar";
-
-const INSTRUMENT_COLORS = [
-  { background: "#eef5c9", border: "#c7d76f", text: "#536416" },
-  { background: "#e7eefc", border: "#96b1ef", text: "#28498f" },
-  { background: "#efe7fc", border: "#b89ce8", text: "#5f338f" },
-  { background: "#fdeacc", border: "#e6b564", text: "#8a5315" },
-  { background: "#e3f5f2", border: "#76cab8", text: "#1d6f61" },
-  { background: "#f9e0e7", border: "#df90a6", text: "#8e2f4b" }
-];
 const MONTH_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function getInstrumentColor(instrumentId: string) {
-  const hash = instrumentId.split("").reduce((total, character) => total + character.charCodeAt(0), 0);
-  return INSTRUMENT_COLORS[hash % INSTRUMENT_COLORS.length];
+  const hash = instrumentId.split("").reduce((total, character) => (total * 31 + character.charCodeAt(0)) % 360, 17);
+  const hue = hash;
+  const accentHue = (hue + 18) % 360;
+
+  return {
+    background: `linear-gradient(135deg, hsl(${hue} 75% 95%), hsl(${accentHue} 78% 90%))`,
+    border: `hsl(${hue} 62% 66%)`,
+    text: `hsl(${hue} 52% 28%)`
+  };
 }
 
 function getMonthStart(offset: number) {
@@ -126,8 +124,7 @@ export function SharedReservationsOverview({
           <div className="inline-actions">
             <button
               className="button button-small button-ghost"
-              disabled={monthOffset <= 0}
-              onClick={() => setMonthOffset((currentOffset) => Math.max(0, currentOffset - 1))}
+              onClick={() => setMonthOffset((currentOffset) => currentOffset - 1)}
               type="button"
             >
               Previous month

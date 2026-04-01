@@ -12,10 +12,11 @@ export const dynamic = "force-dynamic";
 async function loadHomeData() {
   try {
     const reservationWindowStart = new Date();
+    reservationWindowStart.setMonth(reservationWindowStart.getMonth() - 6);
     reservationWindowStart.setDate(1);
     reservationWindowStart.setHours(0, 0, 0, 0);
     const reservationWindowEnd = new Date(reservationWindowStart);
-    reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 6);
+    reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 18);
 
     const [instrumentCount, userCount, upcomingReservationCount, reservationCalendarReservations, instruments] =
       await Promise.all([
