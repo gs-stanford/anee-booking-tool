@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { serializeReservationCalendarItems } from "@/lib/reservation-calendar";
 import { summarizeReservations } from "@/lib/reservation-summary";
-import { formatDateTime, getNotice } from "@/lib/utils";
+import { formatDate, formatDateTime, getNotice } from "@/lib/utils";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -110,6 +110,9 @@ export default async function InstrumentsPage({
                   <p>{instrument.description}</p>
                   {instrument.status === "UNAVAILABLE" && instrument.statusNote ? (
                     <p className="muted">Unavailable note: {instrument.statusNote}</p>
+                  ) : null}
+                  {instrument.status === "UNAVAILABLE" && instrument.unavailableUntil ? (
+                    <p className="muted">Unavailable until: {formatDate(instrument.unavailableUntil)}</p>
                   ) : null}
                   {nextReservation ? (
                     <p className="muted">

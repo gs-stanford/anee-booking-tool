@@ -45,6 +45,34 @@ The seed reads these variables from `.env`:
 - `DEFAULT_ADMIN_EMAIL`
 - `DEFAULT_ADMIN_PASSWORD`
 
+## SMTP reminders
+
+The app now supports SMTP-based reminder emails for instruments that remain unavailable past their review date.
+
+Set these variables in `.env` or Render:
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+
+Then run:
+
+```bash
+npm run reminders:unavailability
+```
+
+What it does:
+
+- finds instruments still marked `Unavailable`
+- checks whether `Unavailable until` is today or earlier
+- emails the instrument owner once
+- records `unavailableReminderSentAt` so the same reminder is not resent repeatedly
+
+If the owner updates the unavailable state again, the reminder is reset and can be sent again on the next due date.
+
 ## Product notes
 
 - Admins add instruments and upload manuals
@@ -99,6 +127,12 @@ npm run prisma:seed
 7. Add a custom domain such as `tool.amboies.com` or `booking.amboies.com`.
 8. In your DNS, point that subdomain to Render.
 9. In WordPress, add a custom menu link to the deployed tool URL.
+
+If you want automatic reminder emails in production, schedule this command to run daily:
+
+```bash
+npm run reminders:unavailability
+```
 
 For the app header:
 

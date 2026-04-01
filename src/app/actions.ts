@@ -57,7 +57,8 @@ const instrumentSchema = z
     location: z.string().trim().min(2),
     description: z.string().trim().min(10),
     status: z.nativeEnum(InstrumentStatus),
-    statusNote: z.string().trim().optional()
+    statusNote: z.string().trim().optional(),
+    unavailableUntil: z.string().trim().optional()
   })
   .superRefine((data, ctx) => {
     if (data.status === InstrumentStatus.UNAVAILABLE && !data.statusNote) {
@@ -67,13 +68,26 @@ const instrumentSchema = z
         path: ["statusNote"]
       });
     }
+
+    if (data.status === InstrumentStatus.UNAVAILABLE && data.unavailableUntil) {
+      const unavailableUntil = parseLabDateTime(data.unavailableUntil, "12:00");
+
+      if (Number.isNaN(unavailableUntil.getTime())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Choose a valid unavailable-until date.",
+          path: ["unavailableUntil"]
+        });
+      }
+    }
   });
 
 const instrumentStatusSchema = z
   .object({
     instrumentId: z.string().min(1),
     status: z.nativeEnum(InstrumentStatus),
-    statusNote: z.string().trim().optional()
+    statusNote: z.string().trim().optional(),
+    unavailableUntil: z.string().trim().optional()
   })
   .superRefine((data, ctx) => {
     if (data.status === InstrumentStatus.UNAVAILABLE && !data.statusNote) {
@@ -82,6 +96,18 @@ const instrumentStatusSchema = z
         message: "Please add a note when an instrument is unavailable.",
         path: ["statusNote"]
       });
+    }
+
+    if (data.status === InstrumentStatus.UNAVAILABLE && data.unavailableUntil) {
+      const unavailableUntil = parseLabDateTime(data.unavailableUntil, "12:00");
+
+      if (Number.isNaN(unavailableUntil.getTime())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Choose a valid unavailable-until date.",
+          path: ["unavailableUntil"]
+        });
+      }
     }
   });
 
@@ -172,6 +198,29 @@ async function getManagedInstrument(instrumentId: string, userId: string, role: 
   }
 
   return instrument;
+}
+
+function parseUnavailableUntil(value?: string) {
+  if (!value) {
+    return null;
+  }
+
+  const unavailableUntil = parseLabDateTime(value, "12:00");
+  return Number.isNaN(unavailableUntil.getTime()) ? null : unavailableUntil;
+}
+
+function buildUnavailableInstrumentMessage(instrument: {
+  owner?: { name: string; email: string } | null;
+}) {
+  if (instrument.owner?.email) {
+    return `Instrument unavailable. Please contact ${instrument.owner.name} at ${instrument.owner.email}.`;
+  }
+
+  if (instrument.owner?.name) {
+    return `Instrument unavailable. Please contact ${instrument.owner.name}.`;
+  }
+
+  return "Instrument unavailable. Please contact the instrument owner.";
 }
 
 export async function loginAction(formData: FormData) {
@@ -338,7 +387,8 @@ export async function createInstrumentAction(formData: FormData) {
     location: formData.get("location"),
     description: formData.get("description"),
     status: formData.get("status"),
-    statusNote: formData.get("statusNote") || undefined
+    statusNote: formData.get("statusNote") || undefined,
+    unavailableUntil: formData.get("unavailableUntil") || undefined
   });
 
   if (!parsed.success) {
@@ -349,6 +399,9 @@ export async function createInstrumentAction(formData: FormData) {
     data: {
       ...parsed.data,
       statusNote: parsed.data.status === InstrumentStatus.UNAVAILABLE ? parsed.data.statusNote : null,
+      unavailableUntil:
+        parsed.data.status === InstrumentStatus.UNAVAILABLE ? parseUnavailableUntil(parsed.data.unavailableUntil) : null,
+      unavailableReminderSentAt: null,
       ownerId: user.id
     }
   });
@@ -366,7 +419,8 @@ export async function updateInstrumentStatusAction(formData: FormData) {
   const parsed = instrumentStatusSchema.safeParse({
     instrumentId,
     status: formData.get("status"),
-    statusNote: formData.get("statusNote") || undefined
+    statusNote: formData.get("statusNote") || undefined,
+    unavailableUntil: formData.get("unavailableUntil") || undefined
   });
 
   if (!parsed.success) {
@@ -385,7 +439,10 @@ export async function updateInstrumentStatusAction(formData: FormData) {
     },
     data: {
       status: parsed.data.status,
-      statusNote: parsed.data.status === InstrumentStatus.UNAVAILABLE ? parsed.data.statusNote : null
+      statusNote: parsed.data.status === InstrumentStatus.UNAVAILABLE ? parsed.data.statusNote : null,
+      unavailableUntil:
+        parsed.data.status === InstrumentStatus.UNAVAILABLE ? parseUnavailableUntil(parsed.data.unavailableUntil) : null,
+      unavailableReminderSentAt: null
     }
   });
 
@@ -595,6 +652,28 @@ export async function createReservationAction(formData: FormData) {
     redirect(withNotice(returnTo, "error", "Please complete the reservation form."));
   }
 
+  const instrument = await db.instrument.findUnique({
+    where: {
+      id: parsed.data.instrumentId
+    },
+    include: {
+      owner: {
+        select: {
+          name: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  if (!instrument) {
+    redirect(withNotice("/instruments", "error", "Instrument not found."));
+  }
+
+  if (instrument.status === InstrumentStatus.UNAVAILABLE) {
+    redirect(withNotice(returnTo, "error", buildUnavailableInstrumentMessage(instrument)));
+  }
+
   const reservationWindows =
     selectedDates.length > 0
       ? selectedDates.map((date) => ({
@@ -686,6 +765,28 @@ export async function updateReservationAction(formData: FormData) {
 
   if (!reservation) {
     redirect(withNotice(returnTo, "error", "You do not have permission to edit that reservation."));
+  }
+
+  const instrument = await db.instrument.findUnique({
+    where: {
+      id: parsed.data.instrumentId
+    },
+    include: {
+      owner: {
+        select: {
+          name: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  if (!instrument) {
+    redirect(withNotice("/instruments", "error", "Instrument not found."));
+  }
+
+  if (instrument.status === InstrumentStatus.UNAVAILABLE) {
+    redirect(withNotice(returnTo, "error", buildUnavailableInstrumentMessage(instrument)));
   }
 
   const startAt = parseLabDateTime(parsed.data.date, parsed.data.startTime);

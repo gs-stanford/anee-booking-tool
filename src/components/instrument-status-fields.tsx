@@ -6,23 +6,30 @@ import { InstrumentStatus } from "@prisma/client";
 type InstrumentStatusFieldsProps = {
   statusName?: string;
   noteName?: string;
+  unavailableUntilName?: string;
   statusLabel?: string;
   noteLabel?: string;
+  unavailableUntilLabel?: string;
   defaultStatus?: InstrumentStatus;
   defaultNote?: string;
+  defaultUnavailableUntil?: string;
 };
 
 export function InstrumentStatusFields({
   statusName = "status",
   noteName = "statusNote",
+  unavailableUntilName = "unavailableUntil",
   statusLabel = "Status",
   noteLabel = "Unavailable note",
+  unavailableUntilLabel = "Unavailable until",
   defaultStatus = InstrumentStatus.AVAILABLE,
-  defaultNote = ""
+  defaultNote = "",
+  defaultUnavailableUntil = ""
 }: InstrumentStatusFieldsProps) {
   const [status, setStatus] = useState<InstrumentStatus>(defaultStatus);
   const statusId = useId();
   const noteId = useId();
+  const unavailableUntilId = useId();
   const showNote = status === InstrumentStatus.UNAVAILABLE;
 
   return (
@@ -41,17 +48,35 @@ export function InstrumentStatusFields({
       </div>
 
       {showNote ? (
-        <div className="field">
-          <label htmlFor={noteId}>{noteLabel}</label>
-          <input
-            defaultValue={defaultNote}
-            id={noteId}
-            name={noteName}
-            placeholder="Out for service, on campaign, loaned out, broken, etc."
-            required
-          />
-        </div>
-      ) : null}
+        <>
+          <div className="field">
+            <label htmlFor={noteId}>{noteLabel}</label>
+            <input
+              defaultValue={defaultNote}
+              id={noteId}
+              name={noteName}
+              placeholder="Out for service, on campaign, loaned out, broken, etc."
+              required
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor={unavailableUntilId}>{unavailableUntilLabel}</label>
+            <input
+              defaultValue={defaultUnavailableUntil}
+              id={unavailableUntilId}
+              name={unavailableUntilName}
+              type="date"
+            />
+            <p className="field-hint">Optional. We will remind the owner to review availability on this date.</p>
+          </div>
+        </>
+      ) : (
+        <>
+          <input name={noteName} type="hidden" value="" />
+          <input name={unavailableUntilName} type="hidden" value="" />
+        </>
+      )}
     </>
   );
 }

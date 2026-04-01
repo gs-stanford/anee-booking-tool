@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "reminders:unavailability": "tsx scripts/send-unavailability-reminders.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/nodemailer": "^7.0.11",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",

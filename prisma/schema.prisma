@@ -43,6 +43,8 @@ model Instrument {
   description        String
   status             InstrumentStatus   @default(AVAILABLE)
   statusNote         String?
+  unavailableUntil   DateTime?
+  unavailableReminderSentAt DateTime?
   ownerId            String?
   owner              User?              @relation("InstrumentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   manuals            Manual[]

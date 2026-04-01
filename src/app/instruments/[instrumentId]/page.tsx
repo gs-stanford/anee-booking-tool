@@ -34,7 +34,8 @@ import {
   formatDateTime,
   formatTime,
   getNotice,
-  getSingleParam
+  getSingleParam,
+  toDateInputValue
 } from "@/lib/utils";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -135,11 +136,20 @@ export default async function InstrumentDetailPage({
         : weekDays[0].date;
   const instrumentUnowned = !instrument.ownerId;
   const canManageInstrument = user.role === Role.ADMIN || instrument.ownerId === user.id;
+  const instrumentUnavailable = instrument.status === InstrumentStatus.UNAVAILABLE;
   const statusLabel = instrument.status === InstrumentStatus.AVAILABLE ? "Available" : "Unavailable";
   const statusClassName =
     instrument.status === InstrumentStatus.AVAILABLE
       ? "status-pill status-pill-available"
       : "status-pill status-pill-unavailable";
+  const unavailableUntilDateKey = instrument.unavailableUntil ? getLabDateKey(instrument.unavailableUntil) : null;
+  const unavailabilityReviewDue =
+    instrumentUnavailable && unavailableUntilDateKey !== null && unavailableUntilDateKey <= todayDateKey;
+  const bookingDisabledMessage = instrument.owner?.email
+    ? `Instrument unavailable. Please contact ${instrument.owner.name} at ${instrument.owner.email}.`
+    : instrument.owner?.name
+      ? `Instrument unavailable. Please contact ${instrument.owner.name}.`
+      : "Instrument unavailable. Please contact the instrument owner.";
   const serializeReservation = (reservation: (typeof instrument.reservations)[number]) => {
     const startTime = getLabTimeKey(reservation.startAt);
     const endDateKey = getLabDateKey(reservation.endAt);
@@ -178,6 +188,7 @@ export default async function InstrumentDetailPage({
               <span>{instrument.location}</span>
               <span className={statusClassName}>{statusLabel}</span>
               <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
+              {instrument.owner?.email ? <span>{instrument.owner.email}</span> : null}
               <span>{instrument.manuals.length} manual(s)</span>
             </div>
           </div>
@@ -204,6 +215,28 @@ export default async function InstrumentDetailPage({
             <strong>Unavailable note:</strong> {instrument.statusNote}
           </p>
         ) : null}
+        {instrument.status === InstrumentStatus.UNAVAILABLE && instrument.unavailableUntil ? (
+          <p className="muted">
+            <strong>Unavailable until:</strong> {formatDate(instrument.unavailableUntil)}
+          </p>
+        ) : null}
+        {instrumentUnavailable ? (
+          <div className="notice notice-error">
+            {bookingDisabledMessage}
+            {instrument.owner?.email ? (
+              <>
+                {" "}
+                <a href={`mailto:${instrument.owner.email}`}>Email owner</a>.
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        {unavailabilityReviewDue && canManageInstrument ? (
+          <div className="notice notice-error">
+            Unavailability review date reached. Please confirm the instrument is back or extend the unavailable-until
+            date.
+          </div>
+        ) : null}
         {notice ? <Notice type={notice.type} message={notice.message} /> : null}
       </section>
 
@@ -216,6 +249,8 @@ export default async function InstrumentDetailPage({
         </div>
 
         <BookingCalendar
+          bookingDisabled={instrumentUnavailable}
+          bookingDisabledMessage={bookingDisabledMessage}
           cancelAction={cancelReservationAction}
           composeDate={composeDate}
           createAction={createReservationAction}
@@ -247,6 +282,7 @@ export default async function InstrumentDetailPage({
           <div className="meta" style={{ marginBottom: 18 }}>
             <span className={statusClassName}>{statusLabel}</span>
             {instrument.statusNote ? <span>{instrument.statusNote}</span> : null}
+            {instrument.unavailableUntil ? <span>Until {formatDate(instrument.unavailableUntil)}</span> : null}
           </div>
 
             {canManageInstrument ? (
@@ -256,8 +292,10 @@ export default async function InstrumentDetailPage({
                   <InstrumentStatusFields
                     defaultNote={instrument.statusNote ?? ""}
                     defaultStatus={instrument.status}
+                    defaultUnavailableUntil={instrument.unavailableUntil ? toDateInputValue(instrument.unavailableUntil) : ""}
                     noteName="statusNote"
                     statusName="status"
+                    unavailableUntilName="unavailableUntil"
                   />
                 </div>
 

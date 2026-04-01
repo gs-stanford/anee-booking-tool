@@ -38,6 +38,8 @@ type BookingCalendarProps = {
   createAction: (formData: FormData) => void | Promise<void>;
   updateAction: (formData: FormData) => void | Promise<void>;
   cancelAction: (formData: FormData) => void | Promise<void>;
+  bookingDisabled?: boolean;
+  bookingDisabledMessage?: string;
 };
 
 type SelectionState = {
@@ -151,7 +153,9 @@ export function BookingCalendar({
   isAdmin,
   createAction,
   updateAction,
-  cancelAction
+  cancelAction,
+  bookingDisabled = false,
+  bookingDisabledMessage = "Instrument unavailable. Please contact the instrument owner."
 }: BookingCalendarProps) {
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, index) => START_HOUR + index);
   const initialReservation =
@@ -212,6 +216,10 @@ export function BookingCalendar({
   }
 
   function handleSlotPointerDown(date: string, slotIndex: number) {
+    if (bookingDisabled) {
+      return;
+    }
+
     selectionAnchor.current = { date, slotIndex };
     setPointerSelecting(true);
     setSelectionSource("grid");
@@ -223,7 +231,7 @@ export function BookingCalendar({
   }
 
   function handleSlotPointerEnter(date: string, slotIndex: number) {
-    if (!pointerSelecting) {
+    if (bookingDisabled || !pointerSelecting) {
       return;
     }
 
@@ -247,6 +255,10 @@ export function BookingCalendar({
   }
 
   function handleNewReservation() {
+    if (bookingDisabled) {
+      return;
+    }
+
     setActiveReservationId("");
     setSelection(defaultSelection(selection.date));
     setSelectedAllDayDates([]);
@@ -255,6 +267,10 @@ export function BookingCalendar({
   }
 
   function handleAllDaySelect(date: string) {
+    if (bookingDisabled) {
+      return;
+    }
+
     setActiveReservationId("");
     setPurpose("");
     setSelectionSource("grid");
@@ -275,7 +291,8 @@ export function BookingCalendar({
     });
   }
 
-  const canSubmit = selectedAllDayDates.length > 0 || selectionSource === "grid" || activeReservationEditable;
+  const canSubmit =
+    !bookingDisabled && (selectedAllDayDates.length > 0 || selectionSource === "grid" || activeReservationEditable);
   const allDaySelectionLabel = formatAllDaySelectionLabel(selectedAllDayDates);
   const returnTo = activeReservationEditable && activeReservation
     ? `/instruments/${instrumentId}?week=${weekOffset}&composeDate=${selection.date}&reservationId=${activeReservation.id}`
@@ -327,6 +344,7 @@ export function BookingCalendar({
             <section className="calendar-day-column" key={day.date}>
               <button
                 className={`calendar-day-header${isComposeDay ? " calendar-day-header-active" : ""}`}
+                disabled={bookingDisabled}
                 onClick={() => setSelection(defaultSelection(dayLabel))}
                 type="button"
               >
@@ -336,6 +354,7 @@ export function BookingCalendar({
 
               <button
                 className={`calendar-all-day-button${selectedAllDayDates.includes(dayLabel) ? " calendar-all-day-button-active" : ""}`}
+                disabled={bookingDisabled}
                 onClick={() => handleAllDaySelect(dayLabel)}
                 type="button"
               >
@@ -348,6 +367,7 @@ export function BookingCalendar({
                     <button
                       aria-label={`Select ${dayLabel} ${slotToTime(slotIndex)}`}
                       className="calendar-slot-button"
+                      disabled={bookingDisabled}
                       key={`${dayLabel}-${slotIndex}`}
                       onPointerDown={() => handleSlotPointerDown(dayLabel, slotIndex)}
                       onPointerEnter={() => handleSlotPointerEnter(dayLabel, slotIndex)}
@@ -426,7 +446,12 @@ export function BookingCalendar({
               </p>
             </div>
             {activeReservationId ? (
-              <button className="button button-ghost button-small" onClick={handleNewReservation} type="button">
+              <button
+                className="button button-ghost button-small"
+                disabled={bookingDisabled}
+                onClick={handleNewReservation}
+                type="button"
+              >
                 Start fresh
               </button>
             ) : null}
@@ -442,7 +467,9 @@ export function BookingCalendar({
                 : `${formatSelectionDateTime(selection.date, selection.startSlot)} to ${formatTimeLabel(slotToTime(selection.endSlot))}`}
             </h4>
             <p className="muted">
-              {selectionSource === "reservation" && !activeReservationEditable
+              {bookingDisabled
+                ? bookingDisabledMessage
+                : selectionSource === "reservation" && !activeReservationEditable
                 ? "This booking belongs to another lab member. Select an open block to create your own reservation."
                 : selectedAllDayDates.length > 0
                   ? "Click All day on each date you want, then reserve them together in one submission."
