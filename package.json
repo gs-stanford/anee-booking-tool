@@ -11,7 +11,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "reminders:unavailability": "tsx scripts/send-unavailability-reminders.ts"
+    "reminders:unavailability": "tsx scripts/send-unavailability-reminders.ts",
+    "reminders:trigger": "node scripts/trigger-unavailability-reminders.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

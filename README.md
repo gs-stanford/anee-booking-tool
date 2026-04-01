@@ -57,6 +57,7 @@ Set these variables in `.env` or Render:
 - `SMTP_USER`
 - `SMTP_PASS`
 - `SMTP_FROM`
+- `REMINDER_JOB_TOKEN`
 
 Then run:
 
@@ -131,8 +132,29 @@ npm run prisma:seed
 If you want automatic reminder emails in production, schedule this command to run daily:
 
 ```bash
-npm run reminders:unavailability
+npm run reminders:trigger
 ```
+
+In the provided Render blueprint, the cron service calls the web app's protected reminder endpoint once per day.
+
+Important:
+
+- set the same `REMINDER_JOB_TOKEN` on both the web service and the cron service
+- the cron does not touch SQLite directly
+- instead it POSTs to `/api/reminders/unavailability` on the main app
+
+Suggested SMTP provider:
+
+- Resend is the easiest fit for this app because it supports standard SMTP and has a friendly low-volume tier for transactional mail
+
+Typical Resend SMTP settings:
+
+- `SMTP_HOST=smtp.resend.com`
+- `SMTP_PORT=465` or `587`
+- `SMTP_SECURE=true` for `465`, `false` for `587`
+- `SMTP_USER=resend`
+- `SMTP_PASS=<your Resend API key>`
+- `SMTP_FROM=<verified sender address>`
 
 For the app header:
 

@@ -25,6 +25,8 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      - key: REMINDER_JOB_TOKEN
+        sync: false
       - key: DEFAULT_ADMIN_NAME
         value: Lab Admin
       - key: DEFAULT_ADMIN_EMAIL
@@ -42,4 +44,17 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: SMTP_FROM
+        sync: false
+  - type: cron
+    name: anee-unavailability-reminders
+    runtime: node
+    plan: starter
+    region: oregon
+    schedule: "0 15 * * *"
+    buildCommand: npm install --include=dev
+    startCommand: npm run reminders:trigger
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: REMINDER_JOB_TOKEN
         sync: false
