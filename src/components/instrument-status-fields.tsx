@@ -6,29 +6,36 @@ import { InstrumentStatus } from "@prisma/client";
 type InstrumentStatusFieldsProps = {
   statusName?: string;
   noteName?: string;
+  unavailableFromName?: string;
   unavailableUntilName?: string;
   statusLabel?: string;
   noteLabel?: string;
+  unavailableFromLabel?: string;
   unavailableUntilLabel?: string;
   defaultStatus?: InstrumentStatus;
   defaultNote?: string;
+  defaultUnavailableFrom?: string;
   defaultUnavailableUntil?: string;
 };
 
 export function InstrumentStatusFields({
   statusName = "status",
   noteName = "statusNote",
+  unavailableFromName = "unavailableFrom",
   unavailableUntilName = "unavailableUntil",
   statusLabel = "Status",
   noteLabel = "Unavailable note",
+  unavailableFromLabel = "Unavailable from",
   unavailableUntilLabel = "Unavailable until",
   defaultStatus = InstrumentStatus.AVAILABLE,
   defaultNote = "",
+  defaultUnavailableFrom = "",
   defaultUnavailableUntil = ""
 }: InstrumentStatusFieldsProps) {
   const [status, setStatus] = useState<InstrumentStatus>(defaultStatus);
   const statusId = useId();
   const noteId = useId();
+  const unavailableFromId = useId();
   const unavailableUntilId = useId();
   const showNote = status === InstrumentStatus.UNAVAILABLE;
 
@@ -61,6 +68,17 @@ export function InstrumentStatusFields({
           </div>
 
           <div className="field">
+            <label htmlFor={unavailableFromId}>{unavailableFromLabel}</label>
+            <input
+              defaultValue={defaultUnavailableFrom}
+              id={unavailableFromId}
+              name={unavailableFromName}
+              type="date"
+            />
+            <p className="field-hint">Optional. Leave blank to treat the instrument as unavailable starting today.</p>
+          </div>
+
+          <div className="field">
             <label htmlFor={unavailableUntilId}>{unavailableUntilLabel}</label>
             <input
               defaultValue={defaultUnavailableUntil}
@@ -74,6 +92,7 @@ export function InstrumentStatusFields({
       ) : (
         <>
           <input name={noteName} type="hidden" value="" />
+          <input name={unavailableFromName} type="hidden" value="" />
           <input name={unavailableUntilName} type="hidden" value="" />
         </>
       )}

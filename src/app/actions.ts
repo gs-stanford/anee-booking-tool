@@ -16,6 +16,7 @@ import {
   requireUser
 } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { doesInstrumentUnavailabilityOverlap } from "@/lib/instrument-availability";
 import { parseLabDateTime } from "@/lib/lab-time";
 import { getManualsRoot } from "@/lib/storage";
 
@@ -58,6 +59,7 @@ const instrumentSchema = z
     description: z.string().trim().min(10),
     status: z.nativeEnum(InstrumentStatus),
     statusNote: z.string().trim().optional(),
+    unavailableFrom: z.string().trim().optional(),
     unavailableUntil: z.string().trim().optional()
   })
   .superRefine((data, ctx) => {
@@ -67,6 +69,18 @@ const instrumentSchema = z
         message: "Please explain why the instrument is unavailable.",
         path: ["statusNote"]
       });
+    }
+
+    if (data.status === InstrumentStatus.UNAVAILABLE && data.unavailableFrom) {
+      const unavailableFrom = parseLabDateTime(data.unavailableFrom, "12:00");
+
+      if (Number.isNaN(unavailableFrom.getTime())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Choose a valid unavailable-from date.",
+          path: ["unavailableFrom"]
+        });
+      }
     }
 
     if (data.status === InstrumentStatus.UNAVAILABLE && data.unavailableUntil) {
@@ -80,6 +94,19 @@ const instrumentSchema = z
         });
       }
     }
+
+    if (data.status === InstrumentStatus.UNAVAILABLE && data.unavailableFrom && data.unavailableUntil) {
+      const unavailableFrom = parseLabDateTime(data.unavailableFrom, "12:00");
+      const unavailableUntil = parseLabDateTime(data.unavailableUntil, "12:00");
+
+      if (!Number.isNaN(unavailableFrom.getTime()) && !Number.isNaN(unavailableUntil.getTime()) && unavailableUntil < unavailableFrom) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Unavailable-until must be on or after the unavailable-from date.",
+          path: ["unavailableUntil"]
+        });
+      }
+    }
   });
 
 const instrumentStatusSchema = z
@@ -87,6 +114,7 @@ const instrumentStatusSchema = z
     instrumentId: z.string().min(1),
     status: z.nativeEnum(InstrumentStatus),
     statusNote: z.string().trim().optional(),
+    unavailableFrom: z.string().trim().optional(),
     unavailableUntil: z.string().trim().optional()
   })
   .superRefine((data, ctx) => {
@@ -98,6 +126,18 @@ const instrumentStatusSchema = z
       });
     }
 
+    if (data.status === InstrumentStatus.UNAVAILABLE && data.unavailableFrom) {
+      const unavailableFrom = parseLabDateTime(data.unavailableFrom, "12:00");
+
+      if (Number.isNaN(unavailableFrom.getTime())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Choose a valid unavailable-from date.",
+          path: ["unavailableFrom"]
+        });
+      }
+    }
+
     if (data.status === InstrumentStatus.UNAVAILABLE && data.unavailableUntil) {
       const unavailableUntil = parseLabDateTime(data.unavailableUntil, "12:00");
 
@@ -105,6 +145,19 @@ const instrumentStatusSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Choose a valid unavailable-until date.",
+          path: ["unavailableUntil"]
+        });
+      }
+    }
+
+    if (data.status === InstrumentStatus.UNAVAILABLE && data.unavailableFrom && data.unavailableUntil) {
+      const unavailableFrom = parseLabDateTime(data.unavailableFrom, "12:00");
+      const unavailableUntil = parseLabDateTime(data.unavailableUntil, "12:00");
+
+      if (!Number.isNaN(unavailableFrom.getTime()) && !Number.isNaN(unavailableUntil.getTime()) && unavailableUntil < unavailableFrom) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Unavailable-until must be on or after the unavailable-from date.",
           path: ["unavailableUntil"]
         });
       }
@@ -207,6 +260,15 @@ function parseUnavailableUntil(value?: string) {
 
   const unavailableUntil = parseLabDateTime(value, "12:00");
   return Number.isNaN(unavailableUntil.getTime()) ? null : unavailableUntil;
+}
+
+function parseUnavailableFrom(value?: string) {
+  if (!value) {
+    return null;
+  }
+
+  const unavailableFrom = parseLabDateTime(value, "12:00");
+  return Number.isNaN(unavailableFrom.getTime()) ? null : unavailableFrom;
 }
 
 function buildUnavailableInstrumentMessage(instrument: {
@@ -388,6 +450,7 @@ export async function createInstrumentAction(formData: FormData) {
     description: formData.get("description"),
     status: formData.get("status"),
     statusNote: formData.get("statusNote") || undefined,
+    unavailableFrom: formData.get("unavailableFrom") || undefined,
     unavailableUntil: formData.get("unavailableUntil") || undefined
   });
 
@@ -399,6 +462,8 @@ export async function createInstrumentAction(formData: FormData) {
     data: {
       ...parsed.data,
       statusNote: parsed.data.status === InstrumentStatus.UNAVAILABLE ? parsed.data.statusNote : null,
+      unavailableFrom:
+        parsed.data.status === InstrumentStatus.UNAVAILABLE ? parseUnavailableFrom(parsed.data.unavailableFrom) : null,
       unavailableUntil:
         parsed.data.status === InstrumentStatus.UNAVAILABLE ? parseUnavailableUntil(parsed.data.unavailableUntil) : null,
       unavailableReminderSentAt: null,
@@ -420,6 +485,7 @@ export async function updateInstrumentStatusAction(formData: FormData) {
     instrumentId,
     status: formData.get("status"),
     statusNote: formData.get("statusNote") || undefined,
+    unavailableFrom: formData.get("unavailableFrom") || undefined,
     unavailableUntil: formData.get("unavailableUntil") || undefined
   });
 
@@ -440,6 +506,8 @@ export async function updateInstrumentStatusAction(formData: FormData) {
     data: {
       status: parsed.data.status,
       statusNote: parsed.data.status === InstrumentStatus.UNAVAILABLE ? parsed.data.statusNote : null,
+      unavailableFrom:
+        parsed.data.status === InstrumentStatus.UNAVAILABLE ? parseUnavailableFrom(parsed.data.unavailableFrom) : null,
       unavailableUntil:
         parsed.data.status === InstrumentStatus.UNAVAILABLE ? parseUnavailableUntil(parsed.data.unavailableUntil) : null,
       unavailableReminderSentAt: null
@@ -670,10 +738,6 @@ export async function createReservationAction(formData: FormData) {
     redirect(withNotice("/instruments", "error", "Instrument not found."));
   }
 
-  if (instrument.status === InstrumentStatus.UNAVAILABLE) {
-    redirect(withNotice(returnTo, "error", buildUnavailableInstrumentMessage(instrument)));
-  }
-
   const reservationWindows =
     selectedDates.length > 0
       ? selectedDates.map((date) => ({
@@ -695,6 +759,16 @@ export async function createReservationAction(formData: FormData) {
 
   if (hasInvalidWindow) {
     redirect(withNotice(returnTo, "error", "Choose a valid time range."));
+  }
+
+  if (instrument.status === InstrumentStatus.UNAVAILABLE) {
+    const overlapsUnavailability = reservationWindows.some((window) =>
+      doesInstrumentUnavailabilityOverlap(instrument, window.startAt, window.endAt)
+    );
+
+    if (overlapsUnavailability) {
+      redirect(withNotice(returnTo, "error", buildUnavailableInstrumentMessage(instrument)));
+    }
   }
 
   for (const window of reservationWindows) {
@@ -785,15 +859,17 @@ export async function updateReservationAction(formData: FormData) {
     redirect(withNotice("/instruments", "error", "Instrument not found."));
   }
 
-  if (instrument.status === InstrumentStatus.UNAVAILABLE) {
-    redirect(withNotice(returnTo, "error", buildUnavailableInstrumentMessage(instrument)));
-  }
-
   const startAt = parseLabDateTime(parsed.data.date, parsed.data.startTime);
   const endAt = parseLabDateTime(parsed.data.date, parsed.data.endTime);
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || startAt >= endAt) {
     redirect(withNotice(returnTo, "error", "Choose a valid time range."));
+  }
+
+  if (instrument.status === InstrumentStatus.UNAVAILABLE) {
+    if (doesInstrumentUnavailabilityOverlap(instrument, startAt, endAt)) {
+      redirect(withNotice(returnTo, "error", buildUnavailableInstrumentMessage(instrument)));
+    }
   }
 
   const conflict = await db.reservation.findFirst({

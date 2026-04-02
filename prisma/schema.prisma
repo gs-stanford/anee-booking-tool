@@ -43,6 +43,7 @@ model Instrument {
   description        String
   status             InstrumentStatus   @default(AVAILABLE)
   statusNote         String?
+  unavailableFrom    DateTime?
   unavailableUntil   DateTime?
   unavailableReminderSentAt DateTime?
   ownerId            String?

@@ -4,8 +4,12 @@ import Link from "next/link";
 import { SharedReservationsOverview } from "@/components/shared-reservations-overview";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { serializeReservationCalendarItems } from "@/lib/reservation-calendar";
+import {
+  serializeInstrumentUnavailabilityCalendarItems,
+  serializeReservationCalendarItems
+} from "@/lib/reservation-calendar";
 import { summarizeReservations } from "@/lib/reservation-summary";
+import { getLabDateKey } from "@/lib/lab-time";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +22,14 @@ async function loadHomeData() {
     const reservationWindowEnd = new Date(reservationWindowStart);
     reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 18);
 
-    const [instrumentCount, userCount, upcomingReservationCount, reservationCalendarReservations, instruments] =
+    const [
+      instrumentCount,
+      userCount,
+      upcomingReservationCount,
+      reservationCalendarReservations,
+      instruments,
+      allInstrumentsForCalendar
+    ] =
       await Promise.all([
       db.instrument.count(),
       db.user.count(),
@@ -51,6 +62,11 @@ async function loadHomeData() {
           createdAt: "desc"
         },
         take: 4
+      }),
+      db.instrument.findMany({
+        orderBy: {
+          name: "asc"
+        }
       })
     ]);
 
@@ -62,7 +78,10 @@ async function loadHomeData() {
       upcomingReservationCount,
       reservationCalendarReservations,
       upcomingReservations,
-      instruments
+      instruments,
+      allInstrumentsForCalendar,
+      reservationWindowStart,
+      reservationWindowEnd
     };
   } catch {
     // Fresh setups render the landing page before migrations exist.
@@ -72,7 +91,10 @@ async function loadHomeData() {
       upcomingReservationCount: 0,
       reservationCalendarReservations: [],
       upcomingReservations: [],
-      instruments: []
+      instruments: [],
+      allInstrumentsForCalendar: [],
+      reservationWindowStart: new Date(),
+      reservationWindowEnd: new Date()
     };
   }
 }
@@ -85,10 +107,20 @@ export default async function HomePage() {
     upcomingReservationCount,
     reservationCalendarReservations,
     upcomingReservations,
-    instruments
+    instruments,
+    allInstrumentsForCalendar,
+    reservationWindowStart,
+    reservationWindowEnd
   } = data;
   const reservationSummaries = summarizeReservations(upcomingReservations).slice(0, 8);
-  const reservationCalendarItems = serializeReservationCalendarItems(reservationCalendarReservations);
+  const reservationCalendarItems = [
+    ...serializeReservationCalendarItems(reservationCalendarReservations),
+    ...serializeInstrumentUnavailabilityCalendarItems(
+      allInstrumentsForCalendar,
+      getLabDateKey(reservationWindowStart),
+      getLabDateKey(reservationWindowEnd)
+    )
+  ];
   const getStatusClassName = (status: string) =>
     status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
 

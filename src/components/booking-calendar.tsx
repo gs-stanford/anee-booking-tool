@@ -5,7 +5,7 @@ import Link from "next/link";
 
 type ReservationItem = {
   id: string;
-  userId: string;
+  userId: string | null;
   date: string;
   startSlot: number;
   endSlot: number;
@@ -14,6 +14,7 @@ type ReservationItem = {
   endTimeLabel: string;
   timeRangeLabel: string;
   purpose: string | null;
+  kind?: "reservation" | "unavailability";
   user: {
     name: string;
   };
@@ -38,8 +39,7 @@ type BookingCalendarProps = {
   createAction: (formData: FormData) => void | Promise<void>;
   updateAction: (formData: FormData) => void | Promise<void>;
   cancelAction: (formData: FormData) => void | Promise<void>;
-  bookingDisabled?: boolean;
-  bookingDisabledMessage?: string;
+  unavailableMessage?: string;
 };
 
 type SelectionState = {
@@ -154,8 +154,7 @@ export function BookingCalendar({
   createAction,
   updateAction,
   cancelAction,
-  bookingDisabled = false,
-  bookingDisabledMessage = "Instrument unavailable. Please contact the instrument owner."
+  unavailableMessage = "Instrument unavailable. Please contact the instrument owner."
 }: BookingCalendarProps) {
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, index) => START_HOUR + index);
   const initialReservation =
@@ -190,7 +189,9 @@ export function BookingCalendar({
     upcomingReservations.find((reservation) => reservation.id === activeReservationId) ??
     null;
   const activeReservationEditable = Boolean(
-    activeReservation && (activeReservation.userId === currentUserId || isAdmin)
+    activeReservation &&
+      activeReservation.kind !== "unavailability" &&
+      (activeReservation.userId === currentUserId || isAdmin)
   );
 
   function updateSelectionFromSlot(date: string, slotIndex: number) {
@@ -216,10 +217,6 @@ export function BookingCalendar({
   }
 
   function handleSlotPointerDown(date: string, slotIndex: number) {
-    if (bookingDisabled) {
-      return;
-    }
-
     selectionAnchor.current = { date, slotIndex };
     setPointerSelecting(true);
     setSelectionSource("grid");
@@ -231,7 +228,7 @@ export function BookingCalendar({
   }
 
   function handleSlotPointerEnter(date: string, slotIndex: number) {
-    if (bookingDisabled || !pointerSelecting) {
+    if (!pointerSelecting) {
       return;
     }
 
@@ -255,10 +252,6 @@ export function BookingCalendar({
   }
 
   function handleNewReservation() {
-    if (bookingDisabled) {
-      return;
-    }
-
     setActiveReservationId("");
     setSelection(defaultSelection(selection.date));
     setSelectedAllDayDates([]);
@@ -267,10 +260,6 @@ export function BookingCalendar({
   }
 
   function handleAllDaySelect(date: string) {
-    if (bookingDisabled) {
-      return;
-    }
-
     setActiveReservationId("");
     setPurpose("");
     setSelectionSource("grid");
@@ -291,8 +280,7 @@ export function BookingCalendar({
     });
   }
 
-  const canSubmit =
-    !bookingDisabled && (selectedAllDayDates.length > 0 || selectionSource === "grid" || activeReservationEditable);
+  const canSubmit = selectedAllDayDates.length > 0 || selectionSource === "grid" || activeReservationEditable;
   const allDaySelectionLabel = formatAllDaySelectionLabel(selectedAllDayDates);
   const returnTo = activeReservationEditable && activeReservation
     ? `/instruments/${instrumentId}?week=${weekOffset}&composeDate=${selection.date}&reservationId=${activeReservation.id}`
@@ -344,7 +332,6 @@ export function BookingCalendar({
             <section className="calendar-day-column" key={day.date}>
               <button
                 className={`calendar-day-header${isComposeDay ? " calendar-day-header-active" : ""}`}
-                disabled={bookingDisabled}
                 onClick={() => setSelection(defaultSelection(dayLabel))}
                 type="button"
               >
@@ -354,7 +341,6 @@ export function BookingCalendar({
 
               <button
                 className={`calendar-all-day-button${selectedAllDayDates.includes(dayLabel) ? " calendar-all-day-button-active" : ""}`}
-                disabled={bookingDisabled}
                 onClick={() => handleAllDaySelect(dayLabel)}
                 type="button"
               >
@@ -367,7 +353,6 @@ export function BookingCalendar({
                     <button
                       aria-label={`Select ${dayLabel} ${slotToTime(slotIndex)}`}
                       className="calendar-slot-button"
-                      disabled={bookingDisabled}
                       key={`${dayLabel}-${slotIndex}`}
                       onPointerDown={() => handleSlotPointerDown(dayLabel, slotIndex)}
                       onPointerEnter={() => handleSlotPointerEnter(dayLabel, slotIndex)}
@@ -398,7 +383,8 @@ export function BookingCalendar({
                   const top = reservation.startSlot * SLOT_HEIGHT;
                   const height = Math.max((reservation.endSlot - reservation.startSlot) * SLOT_HEIGHT, SLOT_HEIGHT);
                   const isSelected = activeReservationId === reservation.id;
-                  const isOwned = reservation.userId === currentUserId || isAdmin;
+                  const isUnavailableBlock = reservation.kind === "unavailability";
+                  const isOwned = !isUnavailableBlock && (reservation.userId === currentUserId || isAdmin);
 
                   return (
                     <button
@@ -448,7 +434,6 @@ export function BookingCalendar({
             {activeReservationId ? (
               <button
                 className="button button-ghost button-small"
-                disabled={bookingDisabled}
                 onClick={handleNewReservation}
                 type="button"
               >
@@ -467,8 +452,8 @@ export function BookingCalendar({
                 : `${formatSelectionDateTime(selection.date, selection.startSlot)} to ${formatTimeLabel(slotToTime(selection.endSlot))}`}
             </h4>
             <p className="muted">
-              {bookingDisabled
-                ? bookingDisabledMessage
+              {activeReservation?.kind === "unavailability"
+                ? unavailableMessage
                 : selectionSource === "reservation" && !activeReservationEditable
                 ? "This booking belongs to another lab member. Select an open block to create your own reservation."
                 : selectedAllDayDates.length > 0

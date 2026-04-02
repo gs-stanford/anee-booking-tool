@@ -100,9 +100,12 @@ function getWeekOffsetForDate(date: string) {
 function buildReservationLink(reservation: ReservationCalendarItem) {
   const weekOffset = getWeekOffsetForDate(reservation.date);
   const params = new URLSearchParams({
-    composeDate: reservation.date,
-    reservationId: reservation.id
+    composeDate: reservation.date
   });
+
+  if (reservation.kind === "reservation") {
+    params.set("reservationId", reservation.id);
+  }
 
   if (weekOffset !== 0) {
     params.set("week", String(weekOffset));
@@ -335,7 +338,7 @@ export function SharedReservationsOverview({
                               borderColor: color.border,
                               color: color.text
                             }}
-                            title={`${reservation.instrumentName} • ${reservation.userName} (All day)`}
+                            title={`${reservation.instrumentName} • ${reservation.userName}${reservation.kind === "unavailability" ? "" : " (All day)"}`}
                           >
                             {reservation.instrumentName} • {reservation.userName}
                           </Link>

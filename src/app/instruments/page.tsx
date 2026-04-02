@@ -4,8 +4,12 @@ import { Notice } from "@/components/notice";
 import { SharedReservationsOverview } from "@/components/shared-reservations-overview";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { serializeReservationCalendarItems } from "@/lib/reservation-calendar";
+import {
+  serializeInstrumentUnavailabilityCalendarItems,
+  serializeReservationCalendarItems
+} from "@/lib/reservation-calendar";
 import { summarizeReservations } from "@/lib/reservation-summary";
+import { getLabDateKey } from "@/lib/lab-time";
 import { formatDate, formatDateTime, getNotice } from "@/lib/utils";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -65,7 +69,14 @@ export default async function InstrumentsPage({
   const sharedReservationSummaries = summarizeReservations(
     sharedReservations.filter((reservation) => reservation.endAt >= new Date())
   ).slice(0, 10);
-  const sharedReservationCalendarItems = serializeReservationCalendarItems(sharedReservations);
+  const sharedReservationCalendarItems = [
+    ...serializeReservationCalendarItems(sharedReservations),
+    ...serializeInstrumentUnavailabilityCalendarItems(
+      instruments,
+      getLabDateKey(reservationWindowStart),
+      getLabDateKey(reservationWindowEnd)
+    )
+  ];
   const getStatusClassName = (status: string) =>
     status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
 
