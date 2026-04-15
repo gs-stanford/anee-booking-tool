@@ -9,6 +9,7 @@ import {
   createReservationAction,
   deleteInstrumentAction,
   deleteManualAction,
+  updateInstrumentDetailsAction,
   updateInstrumentStatusAction,
   updateReservationAction,
   uploadManualAction
@@ -305,6 +306,41 @@ export default async function InstrumentDetailPage({
           <section className="panel">
             <div className="section-head">
               <div>
+                <h2>Instrument details</h2>
+                <p className="muted">Owners can update the name, location, and description after creation.</p>
+              </div>
+            </div>
+
+            {canManageInstrument ? (
+              <form action={updateInstrumentDetailsAction} className="form-grid">
+                <input type="hidden" name="instrumentId" value={instrument.id} />
+                <input type="hidden" name="returnTo" value={`/instruments/${instrument.id}`} />
+                <div className="form-grid two-up">
+                  <div className="field">
+                    <label htmlFor="instrument-name">Instrument name</label>
+                    <input id="instrument-name" name="name" defaultValue={instrument.name} required />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="instrument-location">Location</label>
+                    <input id="instrument-location" name="location" defaultValue={instrument.location} required />
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="instrument-description">Description and usage notes</label>
+                  <textarea id="instrument-description" name="description" defaultValue={instrument.description} required />
+                </div>
+                <button className="button button-secondary" type="submit">
+                  Save details
+                </button>
+              </form>
+            ) : (
+              <p className="muted">Only the instrument owner or an admin can edit these details.</p>
+            )}
+          </section>
+
+          <section className="panel">
+            <div className="section-head">
+              <div>
                 <h2>Instrument availability</h2>
                 <p className="muted">
                   Keep the status current so labmates know whether they can rely on this instrument.
@@ -391,6 +427,7 @@ export default async function InstrumentDetailPage({
               <div className="field">
                 <label htmlFor="manual">Upload manual</label>
                 <input id="manual" name="manual" type="file" accept=".pdf,.doc,.docx" required />
+                <span className="field-hint">PDF, DOC, or DOCX files up to 45 MB.</span>
               </div>
               <button className="button button-secondary" type="submit">
                 Save manual

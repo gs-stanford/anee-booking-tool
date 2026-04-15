@@ -20,6 +20,8 @@ import { doesInstrumentUnavailabilityOverlap } from "@/lib/instrument-availabili
 import { parseLabDateTime } from "@/lib/lab-time";
 import { getManualsRoot } from "@/lib/storage";
 
+const MAX_MANUAL_UPLOAD_BYTES = 45 * 1024 * 1024;
+
 function withNotice(target: string, type: "success" | "error", message: string) {
   const [pathname, existingQuery = ""] = target.split("?");
   const params = new URLSearchParams(existingQuery);
@@ -164,6 +166,13 @@ const instrumentStatusSchema = z
     }
   });
 
+const instrumentDetailsSchema = z.object({
+  instrumentId: z.string().min(1),
+  name: z.string().trim().min(2),
+  location: z.string().trim().min(2),
+  description: z.string().trim().min(10)
+});
+
 const maintenanceSchema = z.object({
   instrumentId: z.string().min(1),
   performedAt: z.string().min(1),
@@ -228,6 +237,20 @@ async function removeFileIfPresent(filePath: string) {
       throw error;
     }
   }
+}
+
+function sanitizeUploadedFileName(fileName: string) {
+  const extension = path.extname(fileName);
+  const baseName = path.basename(fileName, extension);
+  const safeBaseName = baseName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  const safeExtension = extension.replace(/[^a-zA-Z0-9.]/g, "").slice(0, 12);
+
+  return `${safeBaseName || "manual"}${safeExtension || ""}`;
 }
 
 async function getManagedInstrument(instrumentId: string, userId: string, role: Role) {
@@ -476,6 +499,50 @@ export async function createInstrumentAction(formData: FormData) {
   redirect(withNotice(`/instruments/${instrument.id}`, "success", "Instrument added."));
 }
 
+export async function updateInstrumentDetailsAction(formData: FormData) {
+  const user = await requireUser();
+  const instrumentId = String(formData.get("instrumentId") ?? "");
+  const returnTo = getReturnTo(formData, `/instruments/${instrumentId}`);
+
+  const parsed = instrumentDetailsSchema.safeParse({
+    instrumentId,
+    name: formData.get("name"),
+    location: formData.get("location"),
+    description: formData.get("description")
+  });
+
+  if (!parsed.success) {
+    redirect(withNotice(returnTo, "error", "Please complete all instrument detail fields."));
+  }
+
+  const instrument = await getManagedInstrument(parsed.data.instrumentId, user.id, user.role);
+
+  if (!instrument) {
+    redirect(withNotice("/instruments", "error", "You do not have permission to update that instrument."));
+  }
+
+  try {
+    await db.instrument.update({
+      where: {
+        id: parsed.data.instrumentId
+      },
+      data: {
+        name: parsed.data.name,
+        location: parsed.data.location,
+        description: parsed.data.description
+      }
+    });
+  } catch (error) {
+    console.error("Instrument detail update failed", error);
+    redirect(withNotice(returnTo, "error", "Could not update instrument details. The name may already be in use."));
+  }
+
+  revalidatePath("/");
+  revalidatePath("/instruments");
+  revalidatePath(`/instruments/${parsed.data.instrumentId}`);
+  redirect(withNotice(returnTo, "success", "Instrument details updated."));
+}
+
 export async function updateInstrumentStatusAction(formData: FormData) {
   const user = await requireUser();
   const instrumentId = String(formData.get("instrumentId") ?? "");
@@ -573,6 +640,10 @@ export async function uploadManualAction(formData: FormData) {
     redirect(withNotice(`/instruments/${instrumentId}`, "error", "Please choose a manual file."));
   }
 
+  if (file.size > MAX_MANUAL_UPLOAD_BYTES) {
+    redirect(withNotice(`/instruments/${instrumentId}`, "error", "Manual files must be smaller than 45 MB."));
+  }
+
   const instrument = await db.instrument.findUnique({
     where: { id: instrumentId },
     select: { id: true }
@@ -582,23 +653,29 @@ export async function uploadManualAction(formData: FormData) {
     redirect(withNotice("/instruments", "error", "Instrument not found."));
   }
 
-  const storedName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+  const storedName = `${Date.now()}-${sanitizeUploadedFileName(file.name)}`;
   const instrumentDirectory = path.join(getManualsRoot(), instrumentId);
   const filePath = path.join(instrumentDirectory, storedName);
 
-  await mkdir(instrumentDirectory, { recursive: true });
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, buffer);
+  try {
+    await mkdir(instrumentDirectory, { recursive: true });
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(filePath, buffer);
 
-  await db.manual.create({
-    data: {
-      instrumentId,
-      originalName: file.name,
-      storedName,
-      mimeType: file.type || "application/octet-stream",
-      filePath
-    }
-  });
+    await db.manual.create({
+      data: {
+        instrumentId,
+        originalName: file.name,
+        storedName,
+        mimeType: file.type || "application/octet-stream",
+        filePath
+      }
+    });
+  } catch (error) {
+    console.error("Manual upload failed", error);
+    await removeFileIfPresent(filePath);
+    redirect(withNotice(`/instruments/${instrumentId}`, "error", "Manual upload failed. Please try a smaller PDF or ask the lab admin to check storage."));
+  }
 
   revalidatePath(`/instruments/${instrumentId}`);
   redirect(withNotice(`/instruments/${instrumentId}`, "success", "Manual uploaded."));
