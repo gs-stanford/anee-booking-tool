@@ -4,15 +4,12 @@ import { cn } from "@/lib/utils";
 import { safetySdsFolderUrl } from "@/lib/safety-links";
 
 type SafetyNavProps = {
-  current: "home" | "risk-assessment" | "chemical-disposals";
+  current: "risk-assessment" | "chemical-disposals";
 };
 
 export function SafetyNav({ current }: SafetyNavProps) {
   return (
     <div className="safety-subnav">
-      <Link className={cn("button button-small", current === "home" ? "button-secondary" : "button-ghost")} href="/safety">
-        Safety Home
-      </Link>
       <Link
         className={cn("button button-small", current === "risk-assessment" ? "button-secondary" : "button-ghost")}
         href="/safety/risk-assessment"

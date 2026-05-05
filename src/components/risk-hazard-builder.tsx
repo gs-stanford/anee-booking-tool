@@ -64,6 +64,7 @@ export function RiskHazardBuilder() {
         <table className="risk-hazard-table">
           <thead>
             <tr>
+              <th className="risk-row-number-head">#</th>
               <th>Hazard</th>
               <th>Effect</th>
               <th>Control measures</th>
@@ -72,12 +73,14 @@ export function RiskHazardBuilder() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.map((row, index) => (
               <tr key={row.id}>
+                <td className="risk-row-number-cell">{index + 1}</td>
                 <td>
                   <textarea
                     aria-label="Hazard"
                     className="risk-table-textarea"
+                    placeholder="What can go wrong?"
                     onChange={(event) => updateRow(row.id, "hazard", event.target.value)}
                     value={row.hazard}
                   />
@@ -86,6 +89,7 @@ export function RiskHazardBuilder() {
                   <textarea
                     aria-label="Effect"
                     className="risk-table-textarea"
+                    placeholder="Possible injury or consequence"
                     onChange={(event) => updateRow(row.id, "effect", event.target.value)}
                     value={row.effect}
                   />
@@ -94,6 +98,7 @@ export function RiskHazardBuilder() {
                   <textarea
                     aria-label="Control measures"
                     className="risk-table-textarea"
+                    placeholder="PPE, engineering controls, procedure steps"
                     onChange={(event) => updateRow(row.id, "controlMeasures", event.target.value)}
                     value={row.controlMeasures}
                   />
@@ -102,12 +107,13 @@ export function RiskHazardBuilder() {
                   <textarea
                     aria-label="Residual risk"
                     className="risk-table-textarea"
+                    placeholder="Low / medium / high after controls"
                     onChange={(event) => updateRow(row.id, "residualRisk", event.target.value)}
                     value={row.residualRisk}
                   />
                 </td>
                 <td className="risk-table-actions">
-                  <button className="button button-small button-ghost" onClick={() => removeRow(row.id)} type="button">
+                  <button className="risk-row-remove" onClick={() => removeRow(row.id)} type="button">
                     Remove
                   </button>
                 </td>
@@ -118,7 +124,7 @@ export function RiskHazardBuilder() {
       </div>
 
       <div>
-        <button className="button button-secondary" onClick={addRow} type="button">
+        <button className="button button-ghost" onClick={addRow} type="button">
           Add hazard row
         </button>
       </div>

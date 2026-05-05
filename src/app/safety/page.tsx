@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { requireUser } from "@/lib/auth";
 import { safetySdsFolderUrl } from "@/lib/safety-links";
-import { SafetyNav } from "@/components/safety-nav";
 
 const corePractices = [
   "Review the SDS before using any new chemical, gas, solvent, or reactive material.",
@@ -19,8 +18,6 @@ export default async function SafetyLandingPage() {
   return (
     <div className="page-stack">
       <section className="panel safety-landing-panel">
-        <SafetyNav current="home" />
-
         <div className="safety-hero">
           <div className="safety-hero-copy">
             <span className="tag">Lab safety</span>
@@ -32,7 +29,7 @@ export default async function SafetyLandingPage() {
 
             <div className="hero-actions">
               <Link className="button button-primary" href="/safety/risk-assessment">
-                Risk Assessment
+                Fill Risk Assessment
               </Link>
               <a className="button button-secondary" href={safetySdsFolderUrl} rel="noreferrer" target="_blank">
                 Open SDS

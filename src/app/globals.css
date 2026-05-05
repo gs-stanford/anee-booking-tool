@@ -810,7 +810,9 @@ h4 {
 
 .safety-banner-image {
   width: 100%;
-  height: auto;
+  height: 100%;
+  max-height: 320px;
+  object-fit: cover;
   display: block;
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
@@ -876,28 +878,74 @@ h4 {
   gap: 14px;
 }
 
+.form-section-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
 .risk-form-panel {
   gap: 18px;
+}
+
+.risk-hazard-table {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #fff;
 }
 
 .risk-hazard-table th,
 .risk-hazard-table td {
   vertical-align: top;
+  border-right: 1px solid var(--line);
+}
+
+.risk-hazard-table th:last-child,
+.risk-hazard-table td:last-child {
+  border-right: none;
+}
+
+.risk-row-number-head,
+.risk-row-number-cell {
+  width: 52px;
+  min-width: 52px;
+  text-align: center;
+}
+
+.risk-row-number-cell {
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .risk-table-textarea {
   width: 100%;
-  min-height: 110px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 0.85rem 0.9rem;
-  background: #fff;
+  min-height: 92px;
+  border: none;
+  border-radius: 0;
+  padding: 0.25rem 0;
+  background: transparent;
   resize: vertical;
+  line-height: 1.5;
 }
 
 .risk-table-actions {
   width: 1%;
   white-space: nowrap;
+  text-align: center;
+}
+
+.risk-row-remove {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.risk-row-remove:hover {
+  color: var(--cardinal);
 }
 
 table {

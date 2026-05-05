@@ -152,7 +152,13 @@ export default async function RiskAssessmentPage({
           <textarea id="procedureDescription" name="procedureDescription" required />
         </div>
 
-        <RiskHazardBuilder />
+        <div className="plain-form-stack">
+          <div>
+            <label className="form-section-label">Hazard assessment table</label>
+            <p className="muted">Use one row per hazard. Keep the wording simple and specific.</p>
+          </div>
+          <RiskHazardBuilder />
+        </div>
 
         <div className="form-grid two-up">
           <div className="field">
