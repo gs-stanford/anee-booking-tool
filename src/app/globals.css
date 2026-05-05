@@ -191,7 +191,7 @@ h4 {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  cursor: default;
+  cursor: pointer;
 }
 
 .nav-dropdown-trigger::after {
@@ -776,6 +776,56 @@ h4 {
   margin-top: 8px;
 }
 
+.safety-subnav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.safety-landing-panel {
+  padding-bottom: 18px;
+}
+
+.safety-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
+  gap: 24px;
+  align-items: center;
+}
+
+.safety-hero-copy h1 {
+  margin-bottom: 12px;
+}
+
+.safety-hero-copy p {
+  line-height: 1.75;
+  max-width: 60ch;
+}
+
+.safety-hero-visual {
+  display: grid;
+  align-items: center;
+}
+
+.safety-banner-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.safety-principles-list,
+.safety-bullet-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 1.2rem;
+  line-height: 1.65;
+}
+
 .risk-hazard-builder,
 .risk-hazard-stack {
   display: grid;
@@ -821,12 +871,33 @@ h4 {
   color: var(--cardinal);
 }
 
-.safety-bullet-list {
+.plain-form-stack {
   display: grid;
-  gap: 10px;
-  margin: 0;
-  padding-left: 1.2rem;
-  line-height: 1.65;
+  gap: 14px;
+}
+
+.risk-form-panel {
+  gap: 18px;
+}
+
+.risk-hazard-table th,
+.risk-hazard-table td {
+  vertical-align: top;
+}
+
+.risk-table-textarea {
+  width: 100%;
+  min-height: 110px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 0.9rem;
+  background: #fff;
+  resize: vertical;
+}
+
+.risk-table-actions {
+  width: 1%;
+  white-space: nowrap;
 }
 
 table {
@@ -1086,7 +1157,8 @@ td {
   .safety-log-stack,
   .form-grid.two-up,
   .form-grid.three-up,
-  .hero {
+  .hero,
+  .safety-hero {
     grid-template-columns: 1fr;
   }
 

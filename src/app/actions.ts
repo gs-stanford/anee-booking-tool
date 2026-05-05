@@ -1108,7 +1108,7 @@ export async function createSafetyMaterialLogAction(formData: FormData) {
 
 export async function createRiskAssessmentAction(formData: FormData) {
   const user = await requireUser();
-  const returnTo = getReturnTo(formData, "/safety?tab=risk-assessment");
+  const returnTo = getReturnTo(formData, "/safety/risk-assessment");
 
   const parsed = riskAssessmentSchema.safeParse({
     experimentName: formData.get("experimentName"),
@@ -1158,9 +1158,10 @@ export async function createRiskAssessmentAction(formData: FormData) {
   });
 
   revalidatePath("/safety");
+  revalidatePath("/safety/risk-assessment");
   redirect(
     withNotice(
-      "/safety?tab=risk-assessment",
+      "/safety/risk-assessment",
       "success",
       parsed.data.riskLevel === RiskAssessmentLevel.HIGH
         ? "High-risk assessment saved. Download the PDF and collect PI signature."

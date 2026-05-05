@@ -57,72 +57,71 @@ export function RiskHazardBuilder() {
   }
 
   return (
-    <div className="risk-hazard-builder">
+    <div className="plain-form-stack">
       <input name="hazardsJson" type="hidden" value={hazardsJson} />
 
-      <div className="risk-hazard-stack">
-        {rows.map((row, index) => (
-          <section className="risk-hazard-card" key={row.id}>
-            <div className="section-head risk-hazard-head">
-              <div>
-                <h3>Hazard {index + 1}</h3>
-                <p className="muted">Capture the hazard, likely effect, controls, and remaining residual risk.</p>
-              </div>
-              <button className="button button-small button-ghost" onClick={() => removeRow(row.id)} type="button">
-                Remove
-              </button>
-            </div>
-
-            <div className="form-grid two-up">
-              <div className="field">
-                <label htmlFor={`hazard-${row.id}`}>Hazard</label>
-                <textarea
-                  id={`hazard-${row.id}`}
-                  onChange={(event) => updateRow(row.id, "hazard", event.target.value)}
-                  placeholder="Flammable solvent vapors, hot surfaces, nanoparticle inhalation risk..."
-                  value={row.hazard}
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor={`effect-${row.id}`}>Effect</label>
-                <textarea
-                  id={`effect-${row.id}`}
-                  onChange={(event) => updateRow(row.id, "effect", event.target.value)}
-                  placeholder="Fire, skin irritation, respiratory exposure, equipment damage..."
-                  value={row.effect}
-                />
-              </div>
-            </div>
-
-            <div className="form-grid two-up">
-              <div className="field">
-                <label htmlFor={`controls-${row.id}`}>Control measures</label>
-                <textarea
-                  id={`controls-${row.id}`}
-                  onChange={(event) => updateRow(row.id, "controlMeasures", event.target.value)}
-                  placeholder="Fume hood use, shielding, SOP, training, buddy system, ventilation..."
-                  value={row.controlMeasures}
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor={`residual-${row.id}`}>Residual risk</label>
-                <textarea
-                  id={`residual-${row.id}`}
-                  onChange={(event) => updateRow(row.id, "residualRisk", event.target.value)}
-                  placeholder="Low after controls, medium during setup, high until interlock is verified..."
-                  value={row.residualRisk}
-                />
-              </div>
-            </div>
-          </section>
-        ))}
+      <div className="table-wrap">
+        <table className="risk-hazard-table">
+          <thead>
+            <tr>
+              <th>Hazard</th>
+              <th>Effect</th>
+              <th>Control measures</th>
+              <th>Residual risk</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <textarea
+                    aria-label="Hazard"
+                    className="risk-table-textarea"
+                    onChange={(event) => updateRow(row.id, "hazard", event.target.value)}
+                    value={row.hazard}
+                  />
+                </td>
+                <td>
+                  <textarea
+                    aria-label="Effect"
+                    className="risk-table-textarea"
+                    onChange={(event) => updateRow(row.id, "effect", event.target.value)}
+                    value={row.effect}
+                  />
+                </td>
+                <td>
+                  <textarea
+                    aria-label="Control measures"
+                    className="risk-table-textarea"
+                    onChange={(event) => updateRow(row.id, "controlMeasures", event.target.value)}
+                    value={row.controlMeasures}
+                  />
+                </td>
+                <td>
+                  <textarea
+                    aria-label="Residual risk"
+                    className="risk-table-textarea"
+                    onChange={(event) => updateRow(row.id, "residualRisk", event.target.value)}
+                    value={row.residualRisk}
+                  />
+                </td>
+                <td className="risk-table-actions">
+                  <button className="button button-small button-ghost" onClick={() => removeRow(row.id)} type="button">
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <button className="button button-secondary" onClick={addRow} type="button">
-        Add hazard row
-      </button>
+      <div>
+        <button className="button button-secondary" onClick={addRow} type="button">
+          Add hazard row
+        </button>
+      </div>
     </div>
   );
 }

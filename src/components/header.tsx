@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 
 import { logoutAction } from "@/app/actions";
 import { BrandLockup } from "@/components/brand-lockup";
+import { safetySdsFolderUrl } from "@/lib/safety-links";
 
 type HeaderProps = {
   user: {
@@ -20,7 +21,7 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
   const purchaseRequestsLoginHref =
     "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20purchase%20request%20spreadsheets.";
   const safetyLoginHref =
-    "/login?returnTo=%2Fsafety%3Ftab%3Drisk-assessment&noticeType=success&notice=Log%20in%20to%20open%20the%20Safety%20tools.";
+    "/login?returnTo=%2Fsafety&noticeType=success&notice=Log%20in%20to%20open%20the%20Safety%20tools.";
   const inventoryLinks = [
     {
       label: "Gas Cylinders",
@@ -51,16 +52,21 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
   ];
   const safetyLinks = [
     {
-      label: "Risk Assessment",
-      href: "/safety?tab=risk-assessment"
+      label: "Safety Home",
+      href: "/safety"
     },
     {
-      label: "Chemical Disposals",
-      href: "/safety?tab=chemical-disposals"
+      label: "Risk Assessment",
+      href: "/safety/risk-assessment"
+    },
+    {
+      label: "EH&S Disposal",
+      href: "/safety/chemical-disposals"
     },
     {
       label: "SDS",
-      href: "/safety?tab=sds"
+      href: safetySdsFolderUrl,
+      external: true
     }
   ];
 
@@ -122,12 +128,20 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
           )}
           {user ? (
             <div className="nav-dropdown" tabIndex={0}>
-              <span className="nav-link nav-dropdown-trigger">Safety</span>
+              <Link className="nav-link nav-dropdown-trigger" href="/safety">
+                Safety
+              </Link>
               <div className="nav-dropdown-menu">
                 {safetyLinks.map((item) => (
-                  <Link className="nav-dropdown-item" href={item.href} key={item.label}>
-                    {item.label}
-                  </Link>
+                  item.external ? (
+                    <a className="nav-dropdown-item" href={item.href} key={item.label} rel="noreferrer" target="_blank">
+                      {item.label}
+                    </a>
+                  ) : (
+                    <Link className="nav-dropdown-item" href={item.href} key={item.label}>
+                      {item.label}
+                    </Link>
+                  )
                 ))}
               </div>
             </div>
