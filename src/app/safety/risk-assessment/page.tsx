@@ -1,6 +1,6 @@
-import { RiskAssessmentLevel } from "@prisma/client";
+import { RiskAssessmentLevel, Role } from "@prisma/client";
 
-import { createRiskAssessmentAction } from "@/app/actions";
+import { createRiskAssessmentAction, deleteRiskAssessmentAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { RiskHazardBuilder } from "@/components/risk-hazard-builder";
 import { SafetyNav } from "@/components/safety-nav";
@@ -61,7 +61,7 @@ export default async function RiskAssessmentPage({
             <a className="button button-primary" href="#new-risk-assessment">
               Fill Risk Assessment
             </a>
-            <a className="button button-ghost" href="/api/risk-assessments/template/pdf">
+            <a className="button button-ghost" href="/risk-assessment-form-blank.pdf">
               Download Blank PDF
             </a>
           </div>
@@ -81,12 +81,13 @@ export default async function RiskAssessmentPage({
                 <th>Date</th>
                 <th>Risk</th>
                 <th>PDF</th>
+                {user.role === Role.ADMIN ? <th>Admin</th> : null}
               </tr>
             </thead>
             <tbody>
               {riskAssessments.length === 0 ? (
                 <tr>
-                  <td className="muted" colSpan={5}>
+                  <td className="muted" colSpan={user.role === Role.ADMIN ? 6 : 5}>
                     No risk assessments have been filed yet.
                   </td>
                 </tr>
@@ -106,6 +107,16 @@ export default async function RiskAssessmentPage({
                         Download PDF
                       </a>
                     </td>
+                    {user.role === Role.ADMIN ? (
+                      <td>
+                        <form action={deleteRiskAssessmentAction}>
+                          <input name="riskAssessmentId" type="hidden" value={assessment.id} />
+                          <button className="button button-small button-ghost" type="submit">
+                            Delete
+                          </button>
+                        </form>
+                      </td>
+                    ) : null}
                   </tr>
                 ))
               )}

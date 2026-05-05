@@ -5,4 +5,4 @@ export const safetySdsFolderUrl =
 export const stanfordWasteDisposalUrl = "https://ehs.stanford.edu/topic/waste-disposal";
 export const stanfordWasteHandlingUrl = "https://ehs.stanford.edu/topic/waste-disposal/handling-storing-waste";
 export const stanfordRecognizingWasteUrl = "https://ehs.stanford.edu/topic/waste-disposal/recognizing-waste";
-export const stanfordWasteTagUrl = "https://ehs.stanford.edu/reference/wastetag-program";
+export const stanfordWasteTagUrl = "https://ehs.stanford.edu/services/wastetag";

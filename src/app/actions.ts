@@ -1167,6 +1167,26 @@ export async function createRiskAssessmentAction(formData: FormData) {
       parsed.data.riskLevel === RiskAssessmentLevel.HIGH
         ? "High-risk assessment saved. Download the PDF and collect PI signature."
         : "Risk assessment saved."
-    )
+      )
   );
+}
+
+export async function deleteRiskAssessmentAction(formData: FormData) {
+  await requireAdmin();
+
+  const riskAssessmentId = String(formData.get("riskAssessmentId") ?? "").trim();
+
+  if (!riskAssessmentId) {
+    redirect(withNotice("/safety/risk-assessment", "error", "Risk assessment not found."));
+  }
+
+  await db.riskAssessment.delete({
+    where: {
+      id: riskAssessmentId
+    }
+  });
+
+  revalidatePath("/safety");
+  revalidatePath("/safety/risk-assessment");
+  redirect(withNotice("/safety/risk-assessment", "success", "Risk assessment deleted."));
 }
