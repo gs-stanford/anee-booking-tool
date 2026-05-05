@@ -129,10 +129,10 @@ export default async function HomePage() {
       <section className="hero">
         <div>
           <span className="tag">Internal workspace</span>
-          <h1>ANEE Lab Internal Tool</h1>
+          <h1>The Boies Group Internal Tool</h1>
           <p>
-            This is the internal operating hub for the ANEE lab. Instruments, inventory sheets, and purchase-request
-            trackers now live behind the same sign-in, with more internal workflows ready to slot in as the tool grows.
+            This is the internal operating hub for The Boies Group. Instruments, inventory sheets, and safety workflows
+            now live behind the same sign-in, with more internal tools ready to slot in as the site grows.
           </p>
 
           <div className="hero-actions">
@@ -150,7 +150,7 @@ export default async function HomePage() {
         <div className="hero-media">
           <div className="hero-image-shell">
             <Image
-              alt="ANEE aerosol visualization"
+              alt="The Boies Group aerosol visualization"
               className="hero-image"
               height={720}
               priority
