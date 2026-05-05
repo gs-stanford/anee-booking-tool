@@ -57,9 +57,14 @@ export default async function RiskAssessmentPage({
               approval is needed.
             </p>
           </div>
-          <a className="button button-primary" href="#new-risk-assessment">
-            Fill Risk Assessment
-          </a>
+          <div className="hero-actions">
+            <a className="button button-primary" href="#new-risk-assessment">
+              Fill Risk Assessment
+            </a>
+            <a className="button button-ghost" href="/api/risk-assessments/template/pdf">
+              Download Blank PDF
+            </a>
+          </div>
         </div>
 
         {notice ? <Notice message={notice.message} type={notice.type} /> : null}

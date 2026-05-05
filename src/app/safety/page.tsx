@@ -42,11 +42,11 @@ export default async function SafetyLandingPage() {
 
           <div className="safety-hero-visual">
             <Image
-              alt="General lab safety banner"
+              alt="Lab safety practices"
               className="safety-banner-image"
               height={480}
               priority
-              src="/safety-banner.svg"
+              src="/labsafety.png"
               width={1600}
             />
           </div>

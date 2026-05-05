@@ -209,11 +209,11 @@ const riskAssessmentSchema = z
     location: z.string().trim().min(2),
     startDate: z.string().min(1),
     endDate: z.string().min(1),
-    procedureDescription: z.string().trim().min(10),
+    procedureDescription: z.string().trim().min(2),
     riskLevel: z.nativeEnum(RiskAssessmentLevel),
     hazardsJson: z.string().min(2),
-    ppe: z.string().trim().min(3),
-    emergencyInstructions: z.string().trim().min(3),
+    ppe: z.string().trim().min(1),
+    emergencyInstructions: z.string().trim().min(1),
     specialMonitoring: z.string().trim().optional(),
     furtherControlMeasures: z.string().trim().optional(),
     specialistApproval: z.string().trim().optional(),
@@ -1131,7 +1131,8 @@ export async function createRiskAssessmentAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect(withNotice(returnTo, "error", "Please complete the risk assessment form with valid details."));
+    const firstIssue = parsed.error.issues[0]?.message ?? "Please complete the risk assessment form with valid details.";
+    redirect(withNotice(returnTo, "error", firstIssue));
   }
 
   await db.riskAssessment.create({
