@@ -20,9 +20,7 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
   const purchaseRequestsLoginHref =
     "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20purchase%20request%20spreadsheets.";
   const safetyLoginHref =
-    "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20the%20Safety%20folder.";
-  const safetyFolderHref =
-    "https://office365stanford.sharepoint.com/:f:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/Shared%20Documents/5.%20Safety/C.%20SDS?csf=1&web=1&e=uaeuAz";
+    "/login?returnTo=%2Fsafety%3Ftab%3Drisk-assessment&noticeType=success&notice=Log%20in%20to%20open%20the%20Safety%20tools.";
   const inventoryLinks = [
     {
       label: "Gas Cylinders",
@@ -49,6 +47,20 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
     {
       label: "Gas Cylinders",
       href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/Shared%20Documents/3.%20Purchase%20Requests/Gas%20Cylinders%20in%20Process.xlsx?d=w3480a571e6a84d35bba4cbe2b3cefe38&csf=1&web=1&e=0O6xo3"
+    }
+  ];
+  const safetyLinks = [
+    {
+      label: "Risk Assessment",
+      href: "/safety?tab=risk-assessment"
+    },
+    {
+      label: "Chemical Disposals",
+      href: "/safety?tab=chemical-disposals"
+    },
+    {
+      label: "SDS",
+      href: "/safety?tab=sds"
     }
   ];
 
@@ -109,9 +121,16 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
             </Link>
           )}
           {user ? (
-            <a className="nav-link" href={safetyFolderHref} rel="noreferrer" target="_blank">
-              Safety
-            </a>
+            <div className="nav-dropdown" tabIndex={0}>
+              <span className="nav-link nav-dropdown-trigger">Safety</span>
+              <div className="nav-dropdown-menu">
+                {safetyLinks.map((item) => (
+                  <Link className="nav-dropdown-item" href={item.href} key={item.label}>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           ) : (
             <Link className="nav-link" href={safetyLoginHref}>
               Safety

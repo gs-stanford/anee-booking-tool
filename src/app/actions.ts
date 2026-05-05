@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { InstrumentStatus, Role, SafetyMaterialFlow } from "@prisma/client";
+import { InstrumentStatus, RiskAssessmentLevel, Role, SafetyMaterialFlow } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import path from "path";
@@ -18,6 +18,7 @@ import {
 import { db } from "@/lib/db";
 import { doesInstrumentUnavailabilityOverlap } from "@/lib/instrument-availability";
 import { parseLabDateTime } from "@/lib/lab-time";
+import { parseRiskAssessmentHazardsJson } from "@/lib/risk-assessment";
 import { getManualsRoot } from "@/lib/storage";
 
 const MAX_MANUAL_UPLOAD_BYTES = 45 * 1024 * 1024;
@@ -201,6 +202,63 @@ const safetyMaterialSchema = z.object({
   initialAmount: z.string().trim().min(1),
   loggedAt: z.string().min(1)
 });
+
+const riskAssessmentSchema = z
+  .object({
+    experimentName: z.string().trim().min(2),
+    location: z.string().trim().min(2),
+    startDate: z.string().min(1),
+    endDate: z.string().min(1),
+    procedureDescription: z.string().trim().min(10),
+    riskLevel: z.nativeEnum(RiskAssessmentLevel),
+    hazardsJson: z.string().min(2),
+    ppe: z.string().trim().min(3),
+    emergencyInstructions: z.string().trim().min(3),
+    specialMonitoring: z.string().trim().optional(),
+    furtherControlMeasures: z.string().trim().optional(),
+    specialistApproval: z.string().trim().optional(),
+    outOfHoursLoneWorking: z.string().trim().optional(),
+    assessorName: z.string().trim().min(2),
+    assessorEmail: z.string().trim().email(),
+    supervisorName: z.string().trim().min(2),
+    additionalUsers: z.string().trim().optional()
+  })
+  .superRefine((data, ctx) => {
+    const startDate = new Date(data.startDate);
+    const endDate = new Date(data.endDate);
+
+    if (Number.isNaN(startDate.getTime())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose a valid start date.",
+        path: ["startDate"]
+      });
+    }
+
+    if (Number.isNaN(endDate.getTime())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose a valid end date.",
+        path: ["endDate"]
+      });
+    }
+
+    if (!Number.isNaN(startDate.getTime()) && !Number.isNaN(endDate.getTime()) && endDate < startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End date must be on or after the start date.",
+        path: ["endDate"]
+      });
+    }
+
+    if (parseRiskAssessmentHazardsJson(data.hazardsJson).length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Add at least one hazard row to the assessment.",
+        path: ["hazardsJson"]
+      });
+    }
+  });
 
 async function ensureReservationAccess(reservationId: string, userId: string, role: Role) {
   const reservation = await db.reservation.findUnique({
@@ -1044,6 +1102,69 @@ export async function createSafetyMaterialLogAction(formData: FormData) {
       parsed.data.flow === SafetyMaterialFlow.INCOMING
         ? "Incoming material logged."
         : "Outgoing material logged."
+      )
+  );
+}
+
+export async function createRiskAssessmentAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = getReturnTo(formData, "/safety?tab=risk-assessment");
+
+  const parsed = riskAssessmentSchema.safeParse({
+    experimentName: formData.get("experimentName"),
+    location: formData.get("location"),
+    startDate: formData.get("startDate"),
+    endDate: formData.get("endDate"),
+    procedureDescription: formData.get("procedureDescription"),
+    riskLevel: formData.get("riskLevel"),
+    hazardsJson: formData.get("hazardsJson"),
+    ppe: formData.get("ppe"),
+    emergencyInstructions: formData.get("emergencyInstructions"),
+    specialMonitoring: formData.get("specialMonitoring"),
+    furtherControlMeasures: formData.get("furtherControlMeasures"),
+    specialistApproval: formData.get("specialistApproval"),
+    outOfHoursLoneWorking: formData.get("outOfHoursLoneWorking"),
+    assessorName: formData.get("assessorName"),
+    assessorEmail: formData.get("assessorEmail"),
+    supervisorName: formData.get("supervisorName"),
+    additionalUsers: formData.get("additionalUsers")
+  });
+
+  if (!parsed.success) {
+    redirect(withNotice(returnTo, "error", "Please complete the risk assessment form with valid details."));
+  }
+
+  await db.riskAssessment.create({
+    data: {
+      experimentName: parsed.data.experimentName,
+      location: parsed.data.location,
+      startDate: new Date(parsed.data.startDate),
+      endDate: new Date(parsed.data.endDate),
+      procedureDescription: parsed.data.procedureDescription,
+      riskLevel: parsed.data.riskLevel,
+      hazardsJson: JSON.stringify(parseRiskAssessmentHazardsJson(parsed.data.hazardsJson)),
+      ppe: parsed.data.ppe,
+      emergencyInstructions: parsed.data.emergencyInstructions,
+      specialMonitoring: parsed.data.specialMonitoring || null,
+      furtherControlMeasures: parsed.data.furtherControlMeasures || null,
+      specialistApproval: parsed.data.specialistApproval || null,
+      outOfHoursLoneWorking: parsed.data.outOfHoursLoneWorking || null,
+      assessorName: parsed.data.assessorName,
+      assessorEmail: parsed.data.assessorEmail,
+      supervisorName: parsed.data.supervisorName,
+      additionalUsers: parsed.data.additionalUsers || null,
+      createdById: user.id
+    }
+  });
+
+  revalidatePath("/safety");
+  redirect(
+    withNotice(
+      "/safety?tab=risk-assessment",
+      "success",
+      parsed.data.riskLevel === RiskAssessmentLevel.HIGH
+        ? "High-risk assessment saved. Download the PDF and collect PI signature."
+        : "Risk assessment saved."
     )
   );
 }

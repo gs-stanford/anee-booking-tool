@@ -22,6 +22,12 @@ enum SafetyMaterialFlow {
   OUTGOING
 }
 
+enum RiskAssessmentLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model User {
   id                 String             @id @default(cuid())
   name               String
@@ -32,6 +38,7 @@ model User {
   reservations       Reservation[]
   maintenanceEntries MaintenanceEntry[] @relation("MaintenancePerformedBy")
   safetyMaterialLogs SafetyMaterialLog[] @relation("SafetyMaterialLoggedBy")
+  riskAssessments    RiskAssessment[]    @relation("RiskAssessmentsCreated")
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 }
@@ -110,4 +117,33 @@ model SafetyMaterialLog {
   @@index([flow, loggedAt])
   @@index([title])
   @@index([category])
+}
+
+model RiskAssessment {
+  id                      String              @id @default(cuid())
+  experimentName          String
+  location                String
+  startDate               DateTime
+  endDate                 DateTime
+  procedureDescription    String
+  riskLevel               RiskAssessmentLevel
+  hazardsJson             String
+  ppe                     String
+  emergencyInstructions   String
+  specialMonitoring       String?
+  furtherControlMeasures  String?
+  specialistApproval      String?
+  outOfHoursLoneWorking   String?
+  assessorName            String
+  assessorEmail           String
+  supervisorName          String
+  additionalUsers         String?
+  createdById             String?
+  createdBy               User?               @relation("RiskAssessmentsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@index([createdAt])
+  @@index([experimentName])
+  @@index([riskLevel])
 }
