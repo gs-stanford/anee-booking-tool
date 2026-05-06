@@ -20,12 +20,7 @@ export default async function SafetyLandingPage() {
       <section className="panel safety-landing-panel">
         <div className="safety-hero">
           <div className="safety-hero-copy">
-            <span className="tag">Lab safety</span>
             <h1>Safety hub</h1>
-            <p>
-              Keep the lab&apos;s core safety workflows in one place: risk assessments before work begins, direct access
-              to SDS documents, and Stanford EH&amp;S disposal guidance when chemical waste is generated.
-            </p>
 
             <div className="hero-actions">
               <Link className="button button-primary" href="/safety/risk-assessment">
@@ -49,10 +44,6 @@ export default async function SafetyLandingPage() {
               src="/labsafety.png"
               width={1600}
             />
-            <figcaption className="safety-visual-caption">
-              Ask for assistance. Dress properly. Keep the area clean. Do not eat in the lab. Wash hands before
-              leaving.
-            </figcaption>
           </figure>
         </div>
       </section>
