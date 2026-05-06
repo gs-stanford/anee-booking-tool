@@ -1,5 +1,4 @@
 import { requireUser } from "@/lib/auth";
-import { SafetyNav } from "@/components/safety-nav";
 import {
   stanfordRecognizingWasteUrl,
   stanfordWasteDisposalUrl,
@@ -11,10 +10,8 @@ export default async function ChemicalDisposalsPage() {
   await requireUser();
 
   return (
-    <div className="page-stack">
+    <div className="page-stack safety-page">
       <section className="panel">
-        <SafetyNav current="chemical-disposals" />
-
         <div className="section-head">
           <div>
             <h1>Chemical Disposals</h1>
@@ -29,8 +26,8 @@ export default async function ChemicalDisposalsPage() {
         </div>
       </section>
 
-      <div className="detail-grid">
-        <section className="panel">
+      <div className="detail-grid safety-detail-grid">
+        <section className="panel safety-detail-panel">
           <h2>Before disposal</h2>
           <ul className="safety-bullet-list">
             <li>Treat unknown lab chemicals as hazardous waste until Stanford EH&amp;S says otherwise.</li>
@@ -43,7 +40,7 @@ export default async function ChemicalDisposalsPage() {
           </a>
         </section>
 
-        <section className="panel">
+        <section className="panel safety-detail-panel">
           <h2>Containers and storage</h2>
           <ul className="safety-bullet-list">
             <li>Label waste as soon as the first material goes into the container.</li>
@@ -58,7 +55,7 @@ export default async function ChemicalDisposalsPage() {
         </section>
       </div>
 
-      <section className="panel">
+      <section className="panel safety-detail-panel">
         <h2>Pickup workflow</h2>
         <ol className="safety-bullet-list">
           <li>Confirm the waste type and package it correctly.</li>

@@ -3,7 +3,6 @@ import { RiskAssessmentLevel, Role } from "@prisma/client";
 import { createRiskAssessmentAction, deleteRiskAssessmentAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { RiskHazardBuilder } from "@/components/risk-hazard-builder";
-import { SafetyNav } from "@/components/safety-nav";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatRiskAssessmentLevel } from "@/lib/risk-assessment";
@@ -45,24 +44,22 @@ export default async function RiskAssessmentPage({
   });
 
   return (
-    <div className="page-stack">
+    <div className="page-stack safety-page">
       <section className="panel">
-        <SafetyNav current="risk-assessment" />
-
         <div className="section-head">
           <div>
             <h1>Risk Assessment</h1>
             <p className="muted">
-              Keep this page plain and functional: fill the form, save the assessment, and download a PDF when a signed
-              approval is needed.
+              Keep this page plain and functional: use the original form layout, save the assessment here, and
+              download a signed PDF only when approval is needed.
             </p>
           </div>
-          <div className="hero-actions">
+          <div className="hero-actions section-actions">
             <a className="button button-primary" href="#new-risk-assessment">
               Fill Risk Assessment
             </a>
-            <a className="button button-ghost" href="/risk-assessment-form-blank.pdf">
-              Download Blank PDF
+            <a className="button button-ghost" download href="/risk-assessment-form-blank.doc">
+              Download Blank Form
             </a>
           </div>
         </div>
@@ -70,7 +67,7 @@ export default async function RiskAssessmentPage({
         {notice ? <Notice message={notice.message} type={notice.type} /> : null}
       </section>
 
-      <section className="panel">
+      <section className="panel risk-page-section">
         <h2>Filed assessments</h2>
         <div className="table-wrap">
           <table>
@@ -125,7 +122,7 @@ export default async function RiskAssessmentPage({
         </div>
       </section>
 
-      <form action={createRiskAssessmentAction} className="panel risk-form-panel" id="new-risk-assessment">
+      <form action={createRiskAssessmentAction} className="panel risk-form-panel risk-page-section" id="new-risk-assessment">
         <input name="returnTo" type="hidden" value="/safety/risk-assessment" />
 
         <h2>New assessment</h2>
@@ -171,7 +168,7 @@ export default async function RiskAssessmentPage({
         <div className="plain-form-stack">
           <div>
             <label className="form-section-label">Hazard assessment table</label>
-            <p className="muted">Use one row per hazard. Keep the wording simple and specific.</p>
+            <p className="muted">Use one line per hazard. Keep the wording short, direct, and specific.</p>
           </div>
           <RiskHazardBuilder />
         </div>

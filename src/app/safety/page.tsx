@@ -16,7 +16,7 @@ export default async function SafetyLandingPage() {
   await requireUser();
 
   return (
-    <div className="page-stack">
+    <div className="page-stack safety-page">
       <section className="panel safety-landing-panel">
         <div className="safety-hero">
           <div className="safety-hero-copy">
@@ -40,7 +40,7 @@ export default async function SafetyLandingPage() {
             </div>
           </div>
 
-          <div className="safety-hero-visual">
+          <figure className="safety-hero-visual">
             <Image
               alt="Lab safety practices"
               className="safety-banner-image"
@@ -49,11 +49,15 @@ export default async function SafetyLandingPage() {
               src="/labsafety.png"
               width={1600}
             />
-          </div>
+            <figcaption className="safety-visual-caption">
+              Ask for assistance. Dress properly. Keep the area clean. Do not eat in the lab. Wash hands before
+              leaving.
+            </figcaption>
+          </figure>
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel safety-practices-section">
         <h2>Basic lab safety practices</h2>
         <p className="muted">
           This is the quick shared baseline. The real rule is still: follow the experiment-specific assessment, SOP,

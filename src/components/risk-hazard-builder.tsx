@@ -57,7 +57,7 @@ export function RiskHazardBuilder() {
   }
 
   return (
-    <div className="plain-form-stack">
+    <div className="plain-form-stack risk-hazard-sheet">
       <input name="hazardsJson" type="hidden" value={hazardsJson} />
 
       <div className="table-wrap">
@@ -123,8 +123,8 @@ export function RiskHazardBuilder() {
         </table>
       </div>
 
-      <div>
-        <button className="button button-ghost" onClick={addRow} type="button">
+      <div className="risk-hazard-toolbar">
+        <button className="button button-text" onClick={addRow} type="button">
           Add hazard row
         </button>
       </div>
