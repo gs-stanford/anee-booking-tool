@@ -3,6 +3,8 @@ import { InstrumentStatusFields } from "@/components/instrument-status-fields";
 import { Notice } from "@/components/notice";
 import { getNotice } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
+import { Role } from "@prisma/client";
+import Link from "next/link";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -11,8 +13,34 @@ export default async function NewInstrumentPage({
 }: {
   searchParams?: SearchParams | Promise<SearchParams>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const notice = getNotice(await searchParams);
+
+  if (user.role === Role.TEMP) {
+    return (
+      <section className="panel">
+        <div className="section-head">
+          <div>
+            <h1>Instrument creation unavailable</h1>
+            <p className="muted">
+              Temporary accounts are limited to safety resources and approved instrument calendar booking.
+            </p>
+          </div>
+        </div>
+
+        {notice ? <Notice type={notice.type} message={notice.message} /> : null}
+
+        <div className="inline-actions">
+          <Link className="button button-primary" href="/instruments">
+            Open calendar
+          </Link>
+          <Link className="button button-secondary" href="/safety">
+            Open safety tools
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="panel">

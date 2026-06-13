@@ -93,6 +93,7 @@ export async function getCurrentUser() {
         name: true,
         email: true,
         role: true,
+        calendarAccessOnHold: true,
         createdAt: true
       }
     });

@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   ADMIN
   MEMBER
+  TEMP
 }
 
 enum InstrumentStatus {
@@ -34,6 +35,7 @@ model User {
   email              String             @unique
   passwordHash       String
   role               Role               @default(MEMBER)
+  calendarAccessOnHold Boolean          @default(false)
   ownedInstruments   Instrument[]       @relation("InstrumentOwner")
   reservations       Reservation[]
   maintenanceEntries MaintenanceEntry[] @relation("MaintenancePerformedBy")
@@ -53,6 +55,7 @@ model Instrument {
   unavailableFrom    DateTime?
   unavailableUntil   DateTime?
   unavailableReminderSentAt DateTime?
+  temporaryAccessEnabled Boolean @default(false)
   ownerId            String?
   owner              User?              @relation("InstrumentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   manuals            Manual[]

@@ -16,6 +16,7 @@ type HeaderProps = {
 };
 
 export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
+  const isTempUser = user?.role === Role.TEMP;
   const inventoryLoginHref =
     "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20inventory%20spreadsheets.";
   const safetyLoginHref =
@@ -64,13 +65,15 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
 
       <nav className="header-nav">
         <div className="header-nav-links">
-          <Link className="nav-link" href={appUrl}>
-            Home
-          </Link>
+          {!isTempUser ? (
+            <Link className="nav-link" href={appUrl}>
+              Home
+            </Link>
+          ) : null}
           <Link className="nav-link" href="/instruments">
-            Instruments
+            {isTempUser ? "Calendar" : "Instruments"}
           </Link>
-          {user ? (
+          {user && !isTempUser ? (
             <div className="nav-dropdown" tabIndex={0}>
               <span className="nav-link nav-dropdown-trigger">Inventory</span>
               <div className="nav-dropdown-menu">
@@ -87,11 +90,11 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
                 ))}
               </div>
             </div>
-          ) : (
+          ) : !user ? (
             <Link className="nav-link" href={inventoryLoginHref}>
               Inventory
             </Link>
-          )}
+          ) : null}
           {user ? (
             <div className="nav-dropdown" tabIndex={0}>
               <Link className="nav-link nav-dropdown-trigger" href="/safety">
@@ -116,7 +119,7 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
               Safety
             </Link>
           )}
-          {user ? (
+          {user && !isTempUser ? (
             <Link className="nav-link" href="/account">
               Account
             </Link>

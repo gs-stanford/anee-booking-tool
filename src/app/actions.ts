@@ -171,7 +171,8 @@ const instrumentDetailsSchema = z.object({
   instrumentId: z.string().min(1),
   name: z.string().trim().min(2),
   location: z.string().trim().min(2),
-  description: z.string().trim().min(10)
+  description: z.string().trim().min(10),
+  temporaryAccessEnabled: z.boolean()
 });
 
 const maintenanceSchema = z.object({
@@ -266,7 +267,8 @@ async function ensureReservationAccess(reservationId: string, userId: string, ro
     include: {
       instrument: {
         select: {
-          id: true
+          id: true,
+          temporaryAccessEnabled: true
         }
       }
     }
@@ -366,6 +368,43 @@ function buildUnavailableInstrumentMessage(instrument: {
   return "Instrument unavailable. Please contact the instrument owner.";
 }
 
+function blockTempInternalToolAccess(user: { role: Role }, returnTo: string) {
+  if (user.role === Role.TEMP) {
+    redirect(withNotice(returnTo, "error", "Temporary accounts only have access to safety tools and approved calendar booking."));
+  }
+}
+
+function blockHeldCalendarAccess(
+  user: { role: Role; calendarAccessOnHold: boolean },
+  returnTo: string
+) {
+  if (user.role === Role.TEMP && user.calendarAccessOnHold) {
+    redirect(
+      withNotice(
+        returnTo,
+        "error",
+        "Calendar access is on hold until SDS review and glovebox walkthrough are approved by an admin."
+      )
+    );
+  }
+}
+
+function blockTempUnapprovedInstrumentAccess(
+  user: { role: Role },
+  instrument: { temporaryAccessEnabled: boolean },
+  returnTo: string
+) {
+  if (user.role === Role.TEMP && !instrument.temporaryAccessEnabled) {
+    redirect(
+      withNotice(
+        returnTo,
+        "error",
+        "This instrument is not enabled for temporary calendar access. Please contact the lab admin."
+      )
+    );
+  }
+}
+
 export async function loginAction(formData: FormData) {
   const returnTo = getReturnTo(formData, "/instruments");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -421,7 +460,8 @@ export async function createUserAction(formData: FormData) {
       name: parsed.data.name,
       email: parsed.data.email.toLowerCase(),
       passwordHash,
-      role: parsed.data.role
+      role: parsed.data.role,
+      calendarAccessOnHold: parsed.data.role === Role.TEMP
     }
   });
 
@@ -478,9 +518,66 @@ export async function deleteUserAction(formData: FormData) {
   redirect(withNotice("/admin/users", "success", `Deleted ${user.name}.`));
 }
 
+export async function updateUserCalendarHoldAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+  const calendarAccessOnHold = String(formData.get("calendarAccessOnHold") ?? "") === "true";
+
+  if (!userId) {
+    redirect(withNotice("/admin/users", "error", "User details were missing."));
+  }
+
+  if (userId === admin.id) {
+    redirect(withNotice("/admin/users", "error", "You cannot place your own account on calendar hold."));
+  }
+
+  const user = await db.user.findUnique({
+    where: {
+      id: userId
+    },
+    select: {
+      id: true,
+      name: true,
+      role: true
+    }
+  });
+
+  if (!user) {
+    redirect(withNotice("/admin/users", "error", "User not found."));
+  }
+
+  if (user.role !== Role.TEMP) {
+    redirect(withNotice("/admin/users", "error", "Calendar holds only apply to temporary accounts."));
+  }
+
+  await db.user.update({
+    where: {
+      id: user.id
+    },
+    data: {
+      calendarAccessOnHold
+    }
+  });
+
+  revalidatePath("/admin/users");
+  redirect(
+    withNotice(
+      "/admin/users",
+      "success",
+      calendarAccessOnHold
+        ? `Calendar access placed on hold for ${user.name}.`
+        : `Calendar access enabled for ${user.name}.`
+    )
+  );
+}
+
 export async function changePasswordAction(formData: FormData) {
   const user = await requireUser();
   const returnTo = getReturnTo(formData, "/account");
+
+  if (user.role === Role.TEMP) {
+    redirect(withNotice("/instruments", "error", "Temporary account passwords are managed by the lab admin."));
+  }
 
   const parsed = passwordChangeSchema.safeParse({
     currentPassword: formData.get("currentPassword"),
@@ -524,6 +621,7 @@ export async function changePasswordAction(formData: FormData) {
 
 export async function createInstrumentAction(formData: FormData) {
   const user = await requireUser();
+  blockTempInternalToolAccess(user, "/instruments");
 
   const parsed = instrumentSchema.safeParse({
     name: formData.get("name"),
@@ -561,12 +659,14 @@ export async function updateInstrumentDetailsAction(formData: FormData) {
   const user = await requireUser();
   const instrumentId = String(formData.get("instrumentId") ?? "");
   const returnTo = getReturnTo(formData, `/instruments/${instrumentId}`);
+  blockTempInternalToolAccess(user, returnTo);
 
   const parsed = instrumentDetailsSchema.safeParse({
     instrumentId,
     name: formData.get("name"),
     location: formData.get("location"),
-    description: formData.get("description")
+    description: formData.get("description"),
+    temporaryAccessEnabled: formData.get("temporaryAccessEnabled") === "on"
   });
 
   if (!parsed.success) {
@@ -587,7 +687,8 @@ export async function updateInstrumentDetailsAction(formData: FormData) {
       data: {
         name: parsed.data.name,
         location: parsed.data.location,
-        description: parsed.data.description
+        description: parsed.data.description,
+        temporaryAccessEnabled: parsed.data.temporaryAccessEnabled
       }
     });
   } catch (error) {
@@ -605,6 +706,7 @@ export async function updateInstrumentStatusAction(formData: FormData) {
   const user = await requireUser();
   const instrumentId = String(formData.get("instrumentId") ?? "");
   const returnTo = getReturnTo(formData, `/instruments/${instrumentId}`);
+  blockTempInternalToolAccess(user, returnTo);
 
   const parsed = instrumentStatusSchema.safeParse({
     instrumentId,
@@ -649,6 +751,7 @@ export async function claimInstrumentOwnershipAction(formData: FormData) {
   const user = await requireUser();
   const instrumentId = String(formData.get("instrumentId") ?? "");
   const returnTo = getReturnTo(formData, `/instruments/${instrumentId}`);
+  blockTempInternalToolAccess(user, returnTo);
 
   if (!instrumentId) {
     redirect(withNotice("/instruments", "error", "Instrument details were missing."));
@@ -689,9 +792,10 @@ export async function claimInstrumentOwnershipAction(formData: FormData) {
 }
 
 export async function uploadManualAction(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
 
   const instrumentId = String(formData.get("instrumentId") ?? "");
+  blockTempInternalToolAccess(user, `/instruments/${instrumentId}`);
   const file = formData.get("manual");
 
   if (!instrumentId || !(file instanceof File) || file.size === 0) {
@@ -740,11 +844,12 @@ export async function uploadManualAction(formData: FormData) {
 }
 
 export async function deleteManualAction(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
 
   const manualId = String(formData.get("manualId") ?? "");
   const instrumentId = String(formData.get("instrumentId") ?? "");
   const returnTo = getReturnTo(formData, `/instruments/${instrumentId}`);
+  blockTempInternalToolAccess(user, returnTo);
 
   if (!manualId || !instrumentId) {
     redirect(withNotice(returnTo, "error", "Manual details were missing."));
@@ -776,6 +881,7 @@ export async function deleteInstrumentAction(formData: FormData) {
   const user = await requireUser();
 
   const instrumentId = String(formData.get("instrumentId") ?? "");
+  blockTempInternalToolAccess(user, "/instruments");
 
   if (!instrumentId) {
     redirect(withNotice("/instruments", "error", "Instrument details were missing."));
@@ -807,9 +913,11 @@ export async function deleteInstrumentAction(formData: FormData) {
 
 export async function addMaintenanceEntryAction(formData: FormData) {
   const user = await requireUser();
+  const instrumentId = String(formData.get("instrumentId") ?? "");
+  blockTempInternalToolAccess(user, `/instruments/${instrumentId}`);
 
   const parsed = maintenanceSchema.safeParse({
-    instrumentId: formData.get("instrumentId"),
+    instrumentId,
     performedAt: formData.get("performedAt"),
     summary: formData.get("summary"),
     status: formData.get("status"),
@@ -838,6 +946,7 @@ export async function addMaintenanceEntryAction(formData: FormData) {
 export async function createReservationAction(formData: FormData) {
   const user = await requireUser();
   const returnTo = getReturnTo(formData, `/instruments/${String(formData.get("instrumentId") ?? "")}`);
+  blockHeldCalendarAccess(user, returnTo);
   const selectedDates = String(formData.get("selectedDates") ?? "")
     .split(",")
     .map((value) => value.trim())
@@ -872,6 +981,8 @@ export async function createReservationAction(formData: FormData) {
   if (!instrument) {
     redirect(withNotice("/instruments", "error", "Instrument not found."));
   }
+
+  blockTempUnapprovedInstrumentAccess(user, instrument, returnTo);
 
   const reservationWindows =
     selectedDates.length > 0
@@ -956,6 +1067,7 @@ export async function createReservationAction(formData: FormData) {
 export async function updateReservationAction(formData: FormData) {
   const user = await requireUser();
   const returnTo = getReturnTo(formData, `/instruments/${String(formData.get("instrumentId") ?? "")}`);
+  blockHeldCalendarAccess(user, returnTo);
 
   const parsed = reservationUpdateSchema.safeParse({
     reservationId: formData.get("reservationId"),
@@ -993,6 +1105,8 @@ export async function updateReservationAction(formData: FormData) {
   if (!instrument) {
     redirect(withNotice("/instruments", "error", "Instrument not found."));
   }
+
+  blockTempUnapprovedInstrumentAccess(user, instrument, returnTo);
 
   const startAt = parseLabDateTime(parsed.data.date, parsed.data.startTime);
   const endAt = parseLabDateTime(parsed.data.date, parsed.data.endTime);
@@ -1043,6 +1157,7 @@ export async function cancelReservationAction(formData: FormData) {
   const reservationId = String(formData.get("reservationId") ?? "");
   const instrumentId = String(formData.get("instrumentId") ?? "");
   const returnTo = getReturnTo(formData, `/instruments/${instrumentId}`);
+  blockHeldCalendarAccess(user, returnTo);
 
   if (!reservationId || !instrumentId) {
     redirect(withNotice(returnTo, "error", "Reservation details were missing."));
@@ -1053,6 +1168,8 @@ export async function cancelReservationAction(formData: FormData) {
   if (!reservation) {
     redirect(withNotice(returnTo, "error", "You do not have permission to cancel that reservation."));
   }
+
+  blockTempUnapprovedInstrumentAccess(user, reservation.instrument, returnTo);
 
   await db.reservation.delete({
     where: {

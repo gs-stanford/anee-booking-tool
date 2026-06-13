@@ -2,6 +2,8 @@ import { changePasswordAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { requireUser } from "@/lib/auth";
 import { getNotice } from "@/lib/utils";
+import { Role } from "@prisma/client";
+import Link from "next/link";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -12,6 +14,33 @@ export default async function AccountPage({
 }) {
   const user = await requireUser();
   const notice = getNotice(await searchParams);
+
+  if (user.role === Role.TEMP) {
+    return (
+      <section className="panel">
+        <div className="section-head">
+          <div>
+            <h1>Account settings unavailable</h1>
+            <p className="muted">
+              Temporary account credentials are managed by the lab admin. This account is limited to safety resources
+              and approved calendar booking.
+            </p>
+          </div>
+        </div>
+
+        {notice ? <Notice message={notice.message} type={notice.type} /> : null}
+
+        <div className="inline-actions">
+          <Link className="button button-primary" href="/instruments">
+            Open calendar
+          </Link>
+          <Link className="button button-secondary" href="/safety">
+            Open safety tools
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <div className="two-column">

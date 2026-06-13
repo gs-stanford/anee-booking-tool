@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { readFile } from "fs/promises";
@@ -10,6 +11,10 @@ export async function GET(
 
   if (!user) {
     return new Response("Unauthorized.", { status: 401 });
+  }
+
+  if (user.role === Role.TEMP) {
+    return new Response("Forbidden.", { status: 403 });
   }
 
   const { manualId } = await params;

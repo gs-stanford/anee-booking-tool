@@ -52,6 +52,38 @@ export default async function InstrumentDetailPage({
   const user = await requireUser();
   const { instrumentId } = await params;
   const resolvedSearchParams = await searchParams;
+  const isTempUser = user.role === Role.TEMP;
+
+  if (isTempUser && user.calendarAccessOnHold) {
+    const notice = getNotice(resolvedSearchParams);
+
+    return (
+      <section className="panel">
+        <div className="section-head">
+          <div>
+            <Link href="/instruments" className="muted">
+              Back to calendar
+            </Link>
+            <h1>Calendar access pending</h1>
+            <p className="muted">
+              This temporary account cannot book instruments until SDS review and glovebox walkthrough are approved by
+              an admin.
+            </p>
+          </div>
+        </div>
+        {notice ? <Notice type={notice.type} message={notice.message} /> : null}
+        <div className="inline-actions">
+          <Link className="button button-primary" href="/safety">
+            Open safety tools
+          </Link>
+          <Link className="button button-secondary" href="/safety/risk-assessment">
+            Fill risk assessment
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   const weekParam = getSingleParam(resolvedSearchParams, "week");
   const reservationId = getSingleParam(resolvedSearchParams, "reservationId");
   const parsedWeekOffset = Number(weekParam ?? "0");
@@ -112,6 +144,36 @@ export default async function InstrumentDetailPage({
     notFound();
   }
 
+  if (isTempUser && !instrument.temporaryAccessEnabled) {
+    const notice = getNotice(resolvedSearchParams);
+
+    return (
+      <section className="panel">
+        <div className="section-head">
+          <div>
+            <Link href="/instruments" className="muted">
+              Back to calendar
+            </Link>
+            <h1>Instrument not approved for temporary booking</h1>
+            <p className="muted">
+              This temporary account can only reserve instruments explicitly enabled by the lab admin or instrument
+              owner.
+            </p>
+          </div>
+        </div>
+        {notice ? <Notice type={notice.type} message={notice.message} /> : null}
+        <div className="inline-actions">
+          <Link className="button button-primary" href="/instruments">
+            Open approved calendar
+          </Link>
+          <Link className="button button-secondary" href="/safety">
+            Open safety tools
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   const upcomingReservations = await db.reservation.findMany({
     where: {
       instrumentId,
@@ -137,7 +199,7 @@ export default async function InstrumentDetailPage({
         ? todayDateKey
         : weekDays[0].date;
   const instrumentUnowned = !instrument.ownerId;
-  const canManageInstrument = user.role === Role.ADMIN || instrument.ownerId === user.id;
+  const canManageInstrument = !isTempUser && (user.role === Role.ADMIN || instrument.ownerId === user.id);
   const unavailableRange = getUnavailableDateRange(instrument, todayDateKey);
   const instrumentCurrentlyUnavailable = isInstrumentUnavailableOnDate(instrument, todayDateKey, todayDateKey);
   const scheduledUnavailableFuture =
@@ -213,7 +275,8 @@ export default async function InstrumentDetailPage({
               <span className={statusClassName}>{statusLabel}</span>
               <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
               {instrument.owner?.email ? <span>{instrument.owner.email}</span> : null}
-              <span>{instrument.manuals.length} manual(s)</span>
+              {!isTempUser ? <span>{instrument.manuals.length} manual(s)</span> : null}
+              {!isTempUser && instrument.temporaryAccessEnabled ? <span>Temporary access enabled</span> : null}
             </div>
           </div>
           {canManageInstrument ? (
@@ -229,7 +292,7 @@ export default async function InstrumentDetailPage({
               </form>
             </div>
           ) : (
-            <span className="tag">Member booking view</span>
+            <span className="tag">{isTempUser ? "Temporary calendar access" : "Member booking view"}</span>
           )}
         </div>
 
@@ -279,7 +342,11 @@ export default async function InstrumentDetailPage({
         <div className="section-head">
           <div>
             <h2>Reservation calendar</h2>
-            <p className="muted">The calendar now owns the workflow: drag to select time blocks, then submit the reservation inline. The shared week view now includes weekend booking too.</p>
+            <p className="muted">
+              {isTempUser
+                ? "Drag to select an approved booking block, then submit the reservation inline."
+                : "The calendar now owns the workflow: drag to select time blocks, then submit the reservation inline. The shared week view now includes weekend booking too."}
+            </p>
           </div>
         </div>
 
@@ -301,6 +368,7 @@ export default async function InstrumentDetailPage({
         />
       </section>
 
+      {!isTempUser ? (
       <div className="instrument-support-grid" style={{ gridColumn: "1 / -1" }}>
         <div className="instrument-side-stack">
           <section className="panel">
@@ -329,6 +397,18 @@ export default async function InstrumentDetailPage({
                   <label htmlFor="instrument-description">Description and usage notes</label>
                   <textarea id="instrument-description" name="description" defaultValue={instrument.description} required />
                 </div>
+                <label className="toggle-row" htmlFor="temporary-access-enabled">
+                  <input
+                    defaultChecked={instrument.temporaryAccessEnabled}
+                    id="temporary-access-enabled"
+                    name="temporaryAccessEnabled"
+                    type="checkbox"
+                  />
+                  <span>
+                    Allow temporary calendar access
+                    <small>Use this only for instruments approved for outside-lab scheduling, such as the glovebox.</small>
+                  </span>
+                </label>
                 <button className="button button-secondary" type="submit">
                   Save details
                 </button>
@@ -508,6 +588,7 @@ export default async function InstrumentDetailPage({
           </form>
         </section>
       </div>
+      ) : null}
     </div>
   );
 }

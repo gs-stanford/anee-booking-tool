@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Role } from "@prisma/client";
 
 import { SharedReservationsOverview } from "@/components/shared-reservations-overview";
 import { db } from "@/lib/db";
@@ -121,6 +122,8 @@ export default async function HomePage() {
       getLabDateKey(reservationWindowEnd)
     )
   ];
+  const isTempUser = user?.role === Role.TEMP;
+  const isTempCalendarHeld = Boolean(isTempUser && user?.calendarAccessOnHold);
   const getStatusClassName = (status: string) =>
     status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
 
@@ -137,9 +140,9 @@ export default async function HomePage() {
 
           <div className="hero-actions">
             <Link className="button button-primary" href={user ? "/instruments" : "/login"}>
-              {user ? "Open lab equipment module" : "Log in to continue"}
+              {isTempUser ? "Open calendar" : user ? "Open lab equipment module" : "Log in to continue"}
             </Link>
-            {user ? (
+            {user && !isTempUser ? (
               <Link className="button button-secondary" href="/account">
                 Open account
               </Link>
@@ -161,58 +164,88 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="dashboard-grid">
-        <article className="panel">
-          <p className="muted">Tracked instruments</p>
-          <div className="stat">{instrumentCount}</div>
-        </article>
-        <article className="panel">
-          <p className="muted">Active user accounts</p>
-          <div className="stat">{userCount}</div>
-        </article>
-        <article className="panel">
-          <p className="muted">Upcoming reservations</p>
-          <div className="stat">{upcomingReservationCount}</div>
-        </article>
-      </section>
-
-      <section className="two-column landing-columns" style={{ marginTop: 24 }}>
-        <article className="panel">
+      {isTempUser ? (
+        <section className="panel">
           <div className="section-head">
-            <h2>Live instrument module</h2>
-            <Link href="/instruments">Open module</Link>
+            <div>
+              <h2>{isTempCalendarHeld ? "Calendar access pending" : "Temporary access"}</h2>
+              <p className="muted">
+                This temporary account is limited to safety resources
+                {isTempCalendarHeld
+                  ? " while calendar access waits for SDS review and glovebox walkthrough approval."
+                  : " and approved instrument calendar booking."}
+              </p>
+            </div>
           </div>
-          <div className="list">
-            {instruments.length === 0 ? (
-              <p className="muted">No instruments have been added yet.</p>
-            ) : (
-              instruments.map((instrument) => (
-                <Link href={`/instruments/${instrument.id}`} className="instrument-card" key={instrument.id}>
-                  <h3>{instrument.name}</h3>
-                  <div className="meta">
-                    <span>{instrument.location}</span>
-                    <span className={getStatusClassName(instrument.status)}>
-                      {instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}
-                    </span>
-                  </div>
-                  <p>{instrument.description}</p>
-                </Link>
-              ))
-            )}
-          </div>
-        </article>
 
-        <article className="panel">
-          <div className="section-head">
-            <h2>Upcoming reservations</h2>
+          <div className="inline-actions">
+            <Link className="button button-primary" href="/safety">
+              Open safety tools
+            </Link>
+            <Link className="button button-secondary" href="/safety/risk-assessment">
+              Fill risk assessment
+            </Link>
+            <Link className="button button-ghost" href="/instruments">
+              {isTempCalendarHeld ? "Calendar pending" : "Open calendar"}
+            </Link>
           </div>
-          <SharedReservationsOverview
-            calendarHref="/instruments#reservation-calendar"
-            calendarItems={reservationCalendarItems}
-            summaries={reservationSummaries}
-          />
-        </article>
-      </section>
+        </section>
+      ) : (
+        <>
+          <section className="dashboard-grid">
+            <article className="panel">
+              <p className="muted">Tracked instruments</p>
+              <div className="stat">{instrumentCount}</div>
+            </article>
+            <article className="panel">
+              <p className="muted">Active user accounts</p>
+              <div className="stat">{userCount}</div>
+            </article>
+            <article className="panel">
+              <p className="muted">Upcoming reservations</p>
+              <div className="stat">{upcomingReservationCount}</div>
+            </article>
+          </section>
+
+          <section className="two-column landing-columns" style={{ marginTop: 24 }}>
+            <article className="panel">
+              <div className="section-head">
+                <h2>Live instrument module</h2>
+                <Link href="/instruments">Open module</Link>
+              </div>
+              <div className="list">
+                {instruments.length === 0 ? (
+                  <p className="muted">No instruments have been added yet.</p>
+                ) : (
+                  instruments.map((instrument) => (
+                    <Link href={`/instruments/${instrument.id}`} className="instrument-card" key={instrument.id}>
+                      <h3>{instrument.name}</h3>
+                      <div className="meta">
+                        <span>{instrument.location}</span>
+                        <span className={getStatusClassName(instrument.status)}>
+                          {instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}
+                        </span>
+                      </div>
+                      <p>{instrument.description}</p>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="section-head">
+                <h2>Upcoming reservations</h2>
+              </div>
+              <SharedReservationsOverview
+                calendarHref="/instruments#reservation-calendar"
+                calendarItems={reservationCalendarItems}
+                summaries={reservationSummaries}
+              />
+            </article>
+          </section>
+        </>
+      )}
 
       <p className="page-credit">Designed by Gaurav, 2026.</p>
     </>

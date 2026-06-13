@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Role } from "@prisma/client";
 
 import { Notice } from "@/components/notice";
 import { SharedReservationsOverview } from "@/components/shared-reservations-overview";
@@ -19,16 +20,65 @@ export default async function InstrumentsPage({
 }: {
   searchParams?: SearchParams | Promise<SearchParams>;
 }) {
-  await requireUser();
+  const user = await requireUser();
+  const notice = getNotice(await searchParams);
+  const isTempUser = user.role === Role.TEMP;
+
+  if (isTempUser && user.calendarAccessOnHold) {
+    return (
+      <div className="page-stack">
+        <section className="panel">
+          <div className="section-head">
+            <div>
+              <h1>Calendar access pending</h1>
+              <p className="muted">
+                This temporary account can use safety resources now, but instrument calendar booking is on hold until
+                SDS review and glovebox walkthrough are approved by an admin.
+              </p>
+            </div>
+          </div>
+          {notice ? <Notice type={notice.type} message={notice.message} /> : null}
+          <div className="inline-actions">
+            <Link className="button button-primary" href="/safety">
+              Open safety tools
+            </Link>
+            <Link className="button button-secondary" href="/safety/risk-assessment">
+              Fill risk assessment
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   const reservationWindowStart = new Date();
   reservationWindowStart.setMonth(reservationWindowStart.getMonth() - 6);
   reservationWindowStart.setDate(1);
   reservationWindowStart.setHours(0, 0, 0, 0);
   const reservationWindowEnd = new Date(reservationWindowStart);
   reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 18);
+  const instrumentWhere = isTempUser ? { temporaryAccessEnabled: true } : undefined;
+  const reservationWhere = {
+    endAt: {
+      gte: reservationWindowStart
+    },
+    startAt: {
+      lt: reservationWindowEnd
+    },
+    ...(isTempUser
+      ? {
+          instrument: {
+            is: {
+              temporaryAccessEnabled: true
+            }
+          }
+        }
+      : {})
+  };
 
   const [instruments, sharedReservations] = await Promise.all([
     db.instrument.findMany({
+      where: instrumentWhere,
       orderBy: {
         name: "asc"
       },
@@ -47,14 +97,7 @@ export default async function InstrumentsPage({
       }
     }),
     db.reservation.findMany({
-      where: {
-        endAt: {
-          gte: reservationWindowStart
-        },
-        startAt: {
-          lt: reservationWindowEnd
-        }
-      },
+      where: reservationWhere,
       orderBy: {
         startAt: "asc"
       },
@@ -65,7 +108,6 @@ export default async function InstrumentsPage({
     })
   ]);
 
-  const notice = getNotice(await searchParams);
   const sharedReservationSummaries = summarizeReservations(
     sharedReservations.filter((reservation) => reservation.endAt >= new Date())
   ).slice(0, 10);
@@ -79,6 +121,70 @@ export default async function InstrumentsPage({
   ];
   const getStatusClassName = (status: string) =>
     status === "AVAILABLE" ? "status-pill status-pill-available" : "status-pill status-pill-unavailable";
+
+  if (isTempUser) {
+    return (
+      <div className="page-stack">
+        <section className="panel" id="reservation-calendar">
+          <div className="section-head">
+            <div>
+              <h1>Instrument calendar</h1>
+              <p className="muted">
+                Temporary access is limited to the shared reservation calendar and approved instrument booking pages.
+              </p>
+            </div>
+          </div>
+
+          {notice ? <Notice type={notice.type} message={notice.message} /> : null}
+
+          <SharedReservationsOverview
+            calendarItems={sharedReservationCalendarItems}
+            defaultView="calendar"
+            instrumentOptions={instruments.map((instrument) => ({
+              id: instrument.id,
+              name: instrument.name
+            }))}
+            summaries={sharedReservationSummaries}
+          />
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <div>
+              <h2>Book an instrument</h2>
+              <p className="muted">Open a calendar to request an approved reservation slot.</p>
+            </div>
+          </div>
+
+          <div className="list">
+            {instruments.length === 0 ? (
+              <p className="muted">
+                No instruments are currently enabled for temporary booking. Contact the lab admin.
+              </p>
+            ) : (
+              instruments.map((instrument) => (
+                <Link className="instrument-card" href={`/instruments/${instrument.id}`} key={instrument.id}>
+                  <div className="section-head">
+                    <div>
+                      <h3>{instrument.name}</h3>
+                      <div className="meta">
+                        <span>{instrument.location}</span>
+                        <span className={getStatusClassName(instrument.status)}>
+                          {instrument.status === "AVAILABLE" ? "Available" : "Unavailable"}
+                        </span>
+                        {instrument.owner?.email ? <span>Owner: {instrument.owner.email}</span> : null}
+                      </div>
+                    </div>
+                    <span className="tag">Open calendar</span>
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="page-stack">
