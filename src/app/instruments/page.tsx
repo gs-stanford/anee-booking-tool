@@ -25,6 +25,23 @@ export default async function InstrumentsPage({
   const isTempUser = user.role === Role.TEMP;
 
   if (isTempUser && user.calendarAccessOnHold) {
+    const approvedInstruments = await db.instrument.findMany({
+      where: {
+        temporaryAccessEnabled: true
+      },
+      orderBy: {
+        name: "asc"
+      },
+      include: {
+        manuals: {
+          orderBy: {
+            uploadedAt: "desc"
+          }
+        },
+        owner: true
+      }
+    });
+
     return (
       <div className="page-stack">
         <section className="panel">
@@ -45,6 +62,51 @@ export default async function InstrumentsPage({
             <Link className="button button-secondary" href="/safety/risk-assessment">
               Fill risk assessment
             </Link>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <div>
+              <h2>Approved instrument manuals</h2>
+              <p className="muted">
+                These read-only manuals remain available while booking access is on hold.
+              </p>
+            </div>
+          </div>
+
+          <div className="list">
+            {approvedInstruments.length === 0 ? (
+              <p className="muted">No temporary-access instruments are currently enabled.</p>
+            ) : (
+              approvedInstruments.map((instrument) => (
+                <div className="instrument-card" key={instrument.id}>
+                  <div className="section-head">
+                    <div>
+                      <h3>{instrument.name}</h3>
+                      <div className="meta">
+                        <span>{instrument.location}</span>
+                        {instrument.owner?.email ? <span>Owner: {instrument.owner.email}</span> : null}
+                      </div>
+                    </div>
+                    <Link className="tag" href={`/instruments/${instrument.id}`}>
+                      Open page
+                    </Link>
+                  </div>
+                  {instrument.manuals.length === 0 ? (
+                    <p className="muted">No manual uploaded yet.</p>
+                  ) : (
+                    <div className="meta">
+                      {instrument.manuals.map((manual) => (
+                        <a href={`/api/manuals/${manual.id}`} key={manual.id}>
+                          {manual.originalName}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </section>
       </div>

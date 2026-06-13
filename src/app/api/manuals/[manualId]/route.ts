@@ -13,20 +13,27 @@ export async function GET(
     return new Response("Unauthorized.", { status: 401 });
   }
 
-  if (user.role === Role.TEMP) {
-    return new Response("Forbidden.", { status: 403 });
-  }
-
   const { manualId } = await params;
 
   const manual = await db.manual.findUnique({
     where: {
       id: manualId
+    },
+    include: {
+      instrument: {
+        select: {
+          temporaryAccessEnabled: true
+        }
+      }
     }
   });
 
   if (!manual) {
     return new Response("Manual not found.", { status: 404 });
+  }
+
+  if (user.role === Role.TEMP && !manual.instrument.temporaryAccessEnabled) {
+    return new Response("Forbidden.", { status: 403 });
   }
 
   const file = await readFile(manual.filePath);

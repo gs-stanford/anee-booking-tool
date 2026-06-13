@@ -39,6 +39,9 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
       href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7Bad8b47ba-55e3-403f-bc90-74bbd7590f9e%7D&wdExp=TEAMS-TREATMENT&web=1"
     }
   ];
+  const visibleInventoryLinks = isTempUser
+    ? inventoryLinks.filter((item) => item.label === "Chemicals")
+    : inventoryLinks;
   const safetyLinks = [
     {
       label: "Safety Home",
@@ -73,11 +76,11 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
           <Link className="nav-link" href="/instruments">
             {isTempUser ? "Calendar" : "Instruments"}
           </Link>
-          {user && !isTempUser ? (
+          {user && visibleInventoryLinks.length > 0 ? (
             <div className="nav-dropdown" tabIndex={0}>
               <span className="nav-link nav-dropdown-trigger">Inventory</span>
               <div className="nav-dropdown-menu">
-                {inventoryLinks.map((item) => (
+                {visibleInventoryLinks.map((item) => (
                   <a
                     className="nav-dropdown-item"
                     href={item.href}

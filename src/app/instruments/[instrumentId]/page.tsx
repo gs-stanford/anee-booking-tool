@@ -54,36 +54,6 @@ export default async function InstrumentDetailPage({
   const resolvedSearchParams = await searchParams;
   const isTempUser = user.role === Role.TEMP;
 
-  if (isTempUser && user.calendarAccessOnHold) {
-    const notice = getNotice(resolvedSearchParams);
-
-    return (
-      <section className="panel">
-        <div className="section-head">
-          <div>
-            <Link href="/instruments" className="muted">
-              Back to calendar
-            </Link>
-            <h1>Calendar access pending</h1>
-            <p className="muted">
-              This temporary account cannot book instruments until SDS review and glovebox walkthrough are approved by
-              an admin.
-            </p>
-          </div>
-        </div>
-        {notice ? <Notice type={notice.type} message={notice.message} /> : null}
-        <div className="inline-actions">
-          <Link className="button button-primary" href="/safety">
-            Open safety tools
-          </Link>
-          <Link className="button button-secondary" href="/safety/risk-assessment">
-            Fill risk assessment
-          </Link>
-        </div>
-      </section>
-    );
-  }
-
   const weekParam = getSingleParam(resolvedSearchParams, "week");
   const reservationId = getSingleParam(resolvedSearchParams, "reservationId");
   const parsedWeekOffset = Number(weekParam ?? "0");
@@ -260,6 +230,63 @@ export default async function InstrumentDetailPage({
       }
     };
   };
+  const renderManualPanel = (allowManualManagement: boolean) => (
+    <section className="panel manuals-panel">
+      <div className="section-head">
+        <div>
+          <h2>Manuals</h2>
+          <p className="muted">
+            {allowManualManagement
+              ? "Store instrument manuals as downloadable files tied directly to this instrument."
+              : "Download instrument manuals shared by the lab."}
+          </p>
+        </div>
+      </div>
+
+      <div className="list" style={{ marginBottom: allowManualManagement ? 18 : 0 }}>
+        {instrument.manuals.length === 0 ? (
+          <p className="muted">No manual uploaded yet.</p>
+        ) : (
+          instrument.manuals.map((manual) => (
+            <div className="sheet-row" key={manual.id}>
+              <div className="section-head">
+                <a href={`/api/manuals/${manual.id}`}>
+                  <h4>{manual.originalName}</h4>
+                </a>
+                {allowManualManagement ? (
+                  <form action={deleteManualAction}>
+                    <input type="hidden" name="instrumentId" value={instrument.id} />
+                    <input type="hidden" name="manualId" value={manual.id} />
+                    <button className="button button-ghost button-small" type="submit">
+                      Remove file
+                    </button>
+                  </form>
+                ) : null}
+              </div>
+              <div className="meta">
+                <span>Uploaded {formatDateTime(manual.uploadedAt)}</span>
+                <a href={`/api/manuals/${manual.id}`}>Download</a>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {allowManualManagement ? (
+        <form action={uploadManualAction} className="form-grid">
+          <input type="hidden" name="instrumentId" value={instrument.id} />
+          <div className="field">
+            <label htmlFor="manual">Upload manual</label>
+            <input id="manual" name="manual" type="file" accept=".pdf,.doc,.docx" required />
+            <span className="field-hint">PDF, DOC, or DOCX files up to 45 MB.</span>
+          </div>
+          <button className="button button-secondary" type="submit">
+            Save manual
+          </button>
+        </form>
+      ) : null}
+    </section>
+  );
 
   return (
     <div className="detail-grid">
@@ -275,7 +302,7 @@ export default async function InstrumentDetailPage({
               <span className={statusClassName}>{statusLabel}</span>
               <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
               {instrument.owner?.email ? <span>{instrument.owner.email}</span> : null}
-              {!isTempUser ? <span>{instrument.manuals.length} manual(s)</span> : null}
+              <span>{instrument.manuals.length} manual(s)</span>
               {!isTempUser && instrument.temporaryAccessEnabled ? <span>Temporary access enabled</span> : null}
             </div>
           </div>
@@ -350,244 +377,209 @@ export default async function InstrumentDetailPage({
           </div>
         </div>
 
-        <BookingCalendar
-          cancelAction={cancelReservationAction}
-          composeDate={composeDate}
-          createAction={createReservationAction}
-          currentUserId={user.id}
-          instrumentId={instrument.id}
-          isAdmin={user.role === Role.ADMIN}
-          key={`${weekOffset}-${composeDate}-${reservationId ?? "new"}`}
-          reservations={[...unavailableWeekReservations, ...instrument.reservations.map(serializeReservation)]}
-          selectedReservationId={reservationId}
-          unavailableMessage={bookingDisabledMessage}
-          upcomingReservations={upcomingReservations.map(serializeReservation)}
-          updateAction={updateReservationAction}
-          weekOffset={weekOffset}
-          weekDays={weekDays}
-        />
+        {isTempUser && user.calendarAccessOnHold ? (
+          <div className="notice notice-error">
+            Calendar booking is on hold until SDS review and glovebox walkthrough are approved by an admin. Manuals
+            remain available below.
+          </div>
+        ) : (
+          <BookingCalendar
+            cancelAction={cancelReservationAction}
+            composeDate={composeDate}
+            createAction={createReservationAction}
+            currentUserId={user.id}
+            instrumentId={instrument.id}
+            isAdmin={user.role === Role.ADMIN}
+            key={`${weekOffset}-${composeDate}-${reservationId ?? "new"}`}
+            reservations={[...unavailableWeekReservations, ...instrument.reservations.map(serializeReservation)]}
+            selectedReservationId={reservationId}
+            unavailableMessage={bookingDisabledMessage}
+            upcomingReservations={upcomingReservations.map(serializeReservation)}
+            updateAction={updateReservationAction}
+            weekOffset={weekOffset}
+            weekDays={weekDays}
+          />
+        )}
       </section>
 
+      {isTempUser ? (
+        <div style={{ gridColumn: "1 / -1" }}>{renderManualPanel(false)}</div>
+      ) : null}
+
       {!isTempUser ? (
-      <div className="instrument-support-grid" style={{ gridColumn: "1 / -1" }}>
-        <div className="instrument-side-stack">
-          <section className="panel">
-            <div className="section-head">
-              <div>
-                <h2>Instrument details</h2>
-                <p className="muted">Owners can update the name, location, and description after creation.</p>
+        <div className="instrument-support-grid" style={{ gridColumn: "1 / -1" }}>
+          <div className="instrument-side-stack">
+            <section className="panel">
+              <div className="section-head">
+                <div>
+                  <h2>Instrument details</h2>
+                  <p className="muted">Owners can update the name, location, and description after creation.</p>
+                </div>
               </div>
-            </div>
 
-            {canManageInstrument ? (
-              <form action={updateInstrumentDetailsAction} className="form-grid">
-                <input type="hidden" name="instrumentId" value={instrument.id} />
-                <input type="hidden" name="returnTo" value={`/instruments/${instrument.id}`} />
-                <div className="form-grid two-up">
-                  <div className="field">
-                    <label htmlFor="instrument-name">Instrument name</label>
-                    <input id="instrument-name" name="name" defaultValue={instrument.name} required />
+              {canManageInstrument ? (
+                <form action={updateInstrumentDetailsAction} className="form-grid">
+                  <input type="hidden" name="instrumentId" value={instrument.id} />
+                  <input type="hidden" name="returnTo" value={`/instruments/${instrument.id}`} />
+                  <div className="form-grid two-up">
+                    <div className="field">
+                      <label htmlFor="instrument-name">Instrument name</label>
+                      <input id="instrument-name" name="name" defaultValue={instrument.name} required />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="instrument-location">Location</label>
+                      <input id="instrument-location" name="location" defaultValue={instrument.location} required />
+                    </div>
                   </div>
                   <div className="field">
-                    <label htmlFor="instrument-location">Location</label>
-                    <input id="instrument-location" name="location" defaultValue={instrument.location} required />
+                    <label htmlFor="instrument-description">Description and usage notes</label>
+                    <textarea id="instrument-description" name="description" defaultValue={instrument.description} required />
                   </div>
+                  <label className="toggle-row" htmlFor="temporary-access-enabled">
+                    <input
+                      defaultChecked={instrument.temporaryAccessEnabled}
+                      id="temporary-access-enabled"
+                      name="temporaryAccessEnabled"
+                      type="checkbox"
+                    />
+                    <span>
+                      Allow temporary calendar access
+                      <small>Use this only for instruments approved for outside-lab scheduling, such as the glovebox.</small>
+                    </span>
+                  </label>
+                  <button className="button button-secondary" type="submit">
+                    Save details
+                  </button>
+                </form>
+              ) : (
+                <p className="muted">Only the instrument owner or an admin can edit these details.</p>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="section-head">
+                <div>
+                  <h2>Instrument availability</h2>
+                  <p className="muted">
+                    Keep the status current so labmates know whether they can rely on this instrument.
+                  </p>
                 </div>
-                <div className="field">
-                  <label htmlFor="instrument-description">Description and usage notes</label>
-                  <textarea id="instrument-description" name="description" defaultValue={instrument.description} required />
-                </div>
-                <label className="toggle-row" htmlFor="temporary-access-enabled">
-                  <input
-                    defaultChecked={instrument.temporaryAccessEnabled}
-                    id="temporary-access-enabled"
-                    name="temporaryAccessEnabled"
-                    type="checkbox"
-                  />
-                  <span>
-                    Allow temporary calendar access
-                    <small>Use this only for instruments approved for outside-lab scheduling, such as the glovebox.</small>
-                  </span>
-                </label>
-                <button className="button button-secondary" type="submit">
-                  Save details
-                </button>
-              </form>
-            ) : (
-              <p className="muted">Only the instrument owner or an admin can edit these details.</p>
-            )}
-          </section>
+              </div>
+
+              <div className="meta" style={{ marginBottom: 18 }}>
+                <span className={statusClassName}>{statusLabel}</span>
+                {instrument.statusNote ? <span>{instrument.statusNote}</span> : null}
+                {instrument.unavailableFrom ? <span>From {formatDate(instrument.unavailableFrom)}</span> : null}
+                {instrument.unavailableUntil ? <span>Until {formatDate(instrument.unavailableUntil)}</span> : null}
+              </div>
+
+              {canManageInstrument ? (
+                <form action={updateInstrumentStatusAction} className="form-grid">
+                  <input type="hidden" name="instrumentId" value={instrument.id} />
+                  <div className="form-grid two-up">
+                    <InstrumentStatusFields
+                      defaultNote={instrument.statusNote ?? ""}
+                      defaultUnavailableFrom={instrument.unavailableFrom ? toDateInputValue(instrument.unavailableFrom) : ""}
+                      defaultStatus={instrument.status}
+                      defaultUnavailableUntil={instrument.unavailableUntil ? toDateInputValue(instrument.unavailableUntil) : ""}
+                      noteName="statusNote"
+                      statusName="status"
+                      unavailableFromName="unavailableFrom"
+                      unavailableUntilName="unavailableUntil"
+                    />
+                  </div>
+
+                  <button className="button button-secondary" type="submit">
+                    Update availability
+                  </button>
+                </form>
+              ) : instrumentUnowned ? (
+                <form action={claimInstrumentOwnershipAction} className="form-grid">
+                  <input type="hidden" name="instrumentId" value={instrument.id} />
+                  <button className="button button-secondary" type="submit">
+                    Claim ownership
+                  </button>
+                </form>
+              ) : (
+                <p className="muted">Only the instrument owner or an admin can change availability or delete this record.</p>
+              )}
+            </section>
+
+            {renderManualPanel(true)}
+          </div>
 
           <section className="panel">
             <div className="section-head">
               <div>
-                <h2>Instrument availability</h2>
+                <h2>Maintenance sheet</h2>
                 <p className="muted">
-                  Keep the status current so labmates know whether they can rely on this instrument.
+                  This replaces the uploaded Excel concept with a live, always-loaded table for maintenance history.
                 </p>
               </div>
             </div>
 
-          <div className="meta" style={{ marginBottom: 18 }}>
-            <span className={statusClassName}>{statusLabel}</span>
-            {instrument.statusNote ? <span>{instrument.statusNote}</span> : null}
-            {instrument.unavailableFrom ? <span>From {formatDate(instrument.unavailableFrom)}</span> : null}
-            {instrument.unavailableUntil ? <span>Until {formatDate(instrument.unavailableUntil)}</span> : null}
-          </div>
-
-            {canManageInstrument ? (
-              <form action={updateInstrumentStatusAction} className="form-grid">
-                <input type="hidden" name="instrumentId" value={instrument.id} />
-                <div className="form-grid two-up">
-                  <InstrumentStatusFields
-                    defaultNote={instrument.statusNote ?? ""}
-                    defaultUnavailableFrom={instrument.unavailableFrom ? toDateInputValue(instrument.unavailableFrom) : ""}
-                    defaultStatus={instrument.status}
-                    defaultUnavailableUntil={instrument.unavailableUntil ? toDateInputValue(instrument.unavailableUntil) : ""}
-                    noteName="statusNote"
-                    statusName="status"
-                    unavailableFromName="unavailableFrom"
-                    unavailableUntilName="unavailableUntil"
-                  />
-                </div>
-
-                <button className="button button-secondary" type="submit">
-                  Update availability
-                </button>
-              </form>
-            ) : instrumentUnowned ? (
-              <form action={claimInstrumentOwnershipAction} className="form-grid">
-                <input type="hidden" name="instrumentId" value={instrument.id} />
-                <button className="button button-secondary" type="submit">
-                  Claim ownership
-                </button>
-              </form>
-            ) : (
-              <p className="muted">Only the instrument owner or an admin can change availability or delete this record.</p>
-            )}
-          </section>
-
-          <section className="panel manuals-panel">
-            <div className="section-head">
-              <div>
-                <h2>Manuals</h2>
-                <p className="muted">Store instrument manuals as downloadable files tied directly to this instrument.</p>
-              </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Performed by</th>
+                    <th>Status</th>
+                    <th>Summary</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {instrument.maintenanceEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="muted">
+                        No maintenance entries have been logged yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    instrument.maintenanceEntries.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{formatDate(entry.performedAt)}</td>
+                        <td>{entry.performedBy?.name ?? "Unassigned"}</td>
+                        <td>{entry.status}</td>
+                        <td>{entry.summary}</td>
+                        <td>{entry.notes ?? "N/A"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
 
-            <div className="list" style={{ marginBottom: 18 }}>
-              {instrument.manuals.length === 0 ? (
-                <p className="muted">No manual uploaded yet.</p>
-              ) : (
-                instrument.manuals.map((manual) => (
-                  <div className="sheet-row" key={manual.id}>
-                    <div className="section-head">
-                      <a href={`/api/manuals/${manual.id}`}>
-                        <h4>{manual.originalName}</h4>
-                      </a>
-                      <form action={deleteManualAction}>
-                        <input type="hidden" name="instrumentId" value={instrument.id} />
-                        <input type="hidden" name="manualId" value={manual.id} />
-                        <button className="button button-ghost button-small" type="submit">
-                          Remove file
-                        </button>
-                      </form>
-                    </div>
-                    <div className="meta">
-                      <span>Uploaded {formatDateTime(manual.uploadedAt)}</span>
-                      <a href={`/api/manuals/${manual.id}`}>Download</a>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <form action={uploadManualAction} className="form-grid">
+            <form action={addMaintenanceEntryAction} className="form-grid" style={{ marginTop: 20 }}>
               <input type="hidden" name="instrumentId" value={instrument.id} />
-              <div className="field">
-                <label htmlFor="manual">Upload manual</label>
-                <input id="manual" name="manual" type="file" accept=".pdf,.doc,.docx" required />
-                <span className="field-hint">PDF, DOC, or DOCX files up to 45 MB.</span>
+              <div className="form-grid two-up">
+                <div className="field">
+                  <label htmlFor="performedAt">Maintenance date</label>
+                  <input id="performedAt" name="performedAt" type="date" required />
+                </div>
+                <div className="field">
+                  <label htmlFor="status">Status</label>
+                  <input id="status" name="status" placeholder="Passed calibration" required />
+                </div>
               </div>
+
+              <div className="field">
+                <label htmlFor="summary">Summary</label>
+                <input id="summary" name="summary" placeholder="Quarterly alignment and optics cleaning" required />
+              </div>
+
+              <div className="field">
+                <label htmlFor="notes">Notes</label>
+                <textarea id="notes" name="notes" placeholder="Optional details, part replacements, or follow-up actions." />
+              </div>
+
               <button className="button button-secondary" type="submit">
-                Save manual
+                Add maintenance row
               </button>
             </form>
           </section>
         </div>
-
-        <section className="panel">
-          <div className="section-head">
-            <div>
-              <h2>Maintenance sheet</h2>
-              <p className="muted">
-                This replaces the uploaded Excel concept with a live, always-loaded table for maintenance history.
-              </p>
-            </div>
-          </div>
-
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Performed by</th>
-                  <th>Status</th>
-                  <th>Summary</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {instrument.maintenanceEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="muted">
-                      No maintenance entries have been logged yet.
-                    </td>
-                  </tr>
-                ) : (
-                  instrument.maintenanceEntries.map((entry) => (
-                    <tr key={entry.id}>
-                      <td>{formatDate(entry.performedAt)}</td>
-                      <td>{entry.performedBy?.name ?? "Unassigned"}</td>
-                      <td>{entry.status}</td>
-                      <td>{entry.summary}</td>
-                      <td>{entry.notes ?? "N/A"}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <form action={addMaintenanceEntryAction} className="form-grid" style={{ marginTop: 20 }}>
-            <input type="hidden" name="instrumentId" value={instrument.id} />
-            <div className="form-grid two-up">
-              <div className="field">
-                <label htmlFor="performedAt">Maintenance date</label>
-                <input id="performedAt" name="performedAt" type="date" required />
-              </div>
-              <div className="field">
-                <label htmlFor="status">Status</label>
-                <input id="status" name="status" placeholder="Passed calibration" required />
-              </div>
-            </div>
-
-            <div className="field">
-              <label htmlFor="summary">Summary</label>
-              <input id="summary" name="summary" placeholder="Quarterly alignment and optics cleaning" required />
-            </div>
-
-            <div className="field">
-              <label htmlFor="notes">Notes</label>
-              <textarea id="notes" name="notes" placeholder="Optional details, part replacements, or follow-up actions." />
-            </div>
-
-            <button className="button button-secondary" type="submit">
-              Add maintenance row
-            </button>
-          </form>
-        </section>
-      </div>
       ) : null}
     </div>
   );
