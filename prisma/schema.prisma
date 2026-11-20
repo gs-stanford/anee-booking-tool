@@ -37,6 +37,7 @@ model User {
   role               Role               @default(MEMBER)
   calendarAccessOnHold Boolean          @default(false)
   ownedInstruments   Instrument[]       @relation("InstrumentOwner")
+  safetySignups      SafetySignup[]
   reservations       Reservation[]
   maintenanceEntries MaintenanceEntry[] @relation("MaintenancePerformedBy")
   safetyMaterialLogs SafetyMaterialLog[] @relation("SafetyMaterialLoggedBy")
@@ -56,6 +57,8 @@ model Instrument {
   unavailableUntil   DateTime?
   unavailableReminderSentAt DateTime?
   temporaryAccessEnabled Boolean @default(false)
+  impactCategory     String @default("GENERAL")
+  crossShared        Boolean @default(false)
   ownerId            String?
   owner              User?              @relation("InstrumentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   manuals            Manual[]
@@ -149,4 +152,16 @@ model RiskAssessment {
   @@index([createdAt])
   @@index([experimentName])
   @@index([riskLevel])
+}
+
+model SafetySignup {
+  id        String   @id @default(cuid())
+  date      String
+  time      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([date, time])
+  @@index([userId])
 }

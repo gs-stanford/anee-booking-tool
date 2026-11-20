@@ -1,3 +1,4 @@
+import { InstrumentSharingFields } from "@/components/instrument-sharing-fields";
 import Link from "next/link";
 import { InstrumentStatus, Role } from "@prisma/client";
 import { notFound } from "next/navigation";
@@ -49,15 +50,15 @@ export default async function InstrumentDetailPage({
   params: { instrumentId: string } | Promise<{ instrumentId: string }>;
   searchParams?: SearchParams | Promise<SearchParams>;
 }) {
-  const user = await requireUser();
   const { instrumentId } = await params;
+  const user = await requireUser(`/instruments/${instrumentId}`);
   const resolvedSearchParams = await searchParams;
   const isTempUser = user.role === Role.TEMP;
 
   const weekParam = getSingleParam(resolvedSearchParams, "week");
   const reservationId = getSingleParam(resolvedSearchParams, "reservationId");
   const parsedWeekOffset = Number(weekParam ?? "0");
-  const weekOffset = Number.isFinite(parsedWeekOffset) ? Math.max(Math.min(parsedWeekOffset, 24), -24) : 0;
+  const weekOffset = Number.isInteger(parsedWeekOffset) ? Math.max(Math.min(parsedWeekOffset, 52), -52) : 0;
   const todayDateKey = getLabDateKey(new Date());
   const weekStartDate = shiftDateString(getStartOfLabWeekDateKey(new Date()), weekOffset * 7);
   const weekEnd = parseLabDateTime(shiftDateString(weekStartDate, 7), "00:00");
@@ -323,6 +324,7 @@ export default async function InstrumentDetailPage({
           )}
         </div>
 
+        {!isTempUser ? <Link className="button button-secondary button-small" href={`/instruments/labels?instrumentId=${instrument.id}`}>Print QR label</Link> : null}
         <p>{instrument.description}</p>
         {instrument.status === InstrumentStatus.UNAVAILABLE && instrument.statusNote ? (
           <p className="muted">
@@ -435,6 +437,7 @@ export default async function InstrumentDetailPage({
                     <label htmlFor="instrument-description">Description and usage notes</label>
                     <textarea id="instrument-description" name="description" defaultValue={instrument.description} required />
                   </div>
+                  <InstrumentSharingFields impactCategory={instrument.impactCategory} crossShared={instrument.crossShared} />
                   <label className="toggle-row" htmlFor="temporary-access-enabled">
                     <input
                       defaultChecked={instrument.temporaryAccessEnabled}

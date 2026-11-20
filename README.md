@@ -171,3 +171,15 @@ If you later want `amboies.com/anee` exactly instead of a subdomain, you will ne
 - instrument-specific booking rules
 - email notifications
 - Postgres migration for multi-device robustness
+
+## Homepage safety and shared-impact calendar
+
+Signed-in members and admins see a weekly homepage calendar. Each Monday–Friday has one 9 am and one 6 pm safety evaluation signup, in `LAB_TIMEZONE` (default `America/Los_Angeles`). A unique database constraint prevents concurrent double claims. Members can release their own future slots; admins can release any future slot. Temporary accounts retain their existing restricted instrument calendar access.
+
+The instrument calendar remains the master source for every reservation and contains no safety signups. The homepage reads the same reservations, including bookings spanning multiple days, for instruments categorized as Laser, CNT reactor, Fumehood, or marked Cross-shared. Owners and admins edit these settings under Instrument details. The migration categorizes existing names containing laser, CNT/nanotube reactor, or fume hood; owners should review unusual names.
+
+Open `/instruments/labels` to print all instrument QR labels, or use Print QR label on an instrument page. Labels link to permanent `https://lab.amboies.com/instruments/<id>` pages, preserve the destination through login, and are generated locally. Print at 100% on Letter paper with browser headers/footers disabled; labels measure 3.5 × 2 inches.
+
+The UI uses Stanford Cardinal red, Source Sans 3 and Source Serif 4, following the [Stanford identity guide](https://identity.stanford.edu/).
+
+Render runs `prisma migrate deploy` before starting the service, applying the additive safety-signup and instrument-visibility migration automatically.

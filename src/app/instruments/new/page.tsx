@@ -1,3 +1,4 @@
+import { InstrumentSharingFields } from "@/components/instrument-sharing-fields";
 import { createInstrumentAction } from "@/app/actions";
 import { InstrumentStatusFields } from "@/components/instrument-status-fields";
 import { Notice } from "@/components/notice";
@@ -67,6 +68,7 @@ export default async function NewInstrumentPage({
         </div>
 
         <InstrumentStatusFields />
+        <InstrumentSharingFields />
 
         <div className="field">
           <label htmlFor="description">Description and usage notes</label>

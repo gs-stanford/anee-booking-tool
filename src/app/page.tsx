@@ -1,3 +1,7 @@
+import { isSharedImpact } from "@/lib/home-calendar";
+import { HomeCalendar } from "@/components/home-calendar";
+import { Notice } from "@/components/notice";
+import { getNotice, getSingleParam } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { Role } from "@prisma/client";
@@ -100,7 +104,11 @@ async function loadHomeData() {
   }
 }
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = await searchParams;
+  const notice = getNotice(query);
+  const parsedWeek = Number(getSingleParam(query, "week") ?? 0);
+  const week = Number.isInteger(parsedWeek) ? Math.max(-52, Math.min(52, parsedWeek)) : 0;
   const [user, data] = await Promise.all([getCurrentUser(), loadHomeData()]);
   const {
     instrumentCount,
@@ -113,11 +121,11 @@ export default async function HomePage() {
     reservationWindowStart,
     reservationWindowEnd
   } = data;
-  const reservationSummaries = summarizeReservations(upcomingReservations).slice(0, 8);
+  const reservationSummaries = summarizeReservations(upcomingReservations.filter(item => isSharedImpact(item.instrument))).slice(0, 8);
   const reservationCalendarItems = [
-    ...serializeReservationCalendarItems(reservationCalendarReservations),
+    ...serializeReservationCalendarItems(reservationCalendarReservations.filter(item => isSharedImpact(item.instrument))),
     ...serializeInstrumentUnavailabilityCalendarItems(
-      allInstrumentsForCalendar,
+      allInstrumentsForCalendar.filter(isSharedImpact),
       getLabDateKey(reservationWindowStart),
       getLabDateKey(reservationWindowEnd)
     )
@@ -132,10 +140,9 @@ export default async function HomePage() {
       <section className="hero">
         <div>
           <span className="tag">Internal workspace</span>
-          <h1>The Boies Group Internal Tool</h1>
+          <h1>The Boies Group</h1>
           <p>
-            This is the internal operating hub for The Boies Group. Instruments, inventory sheets, and safety workflows
-            now live behind the same sign-in, with more internal tools ready to slot in as the site grows.
+            A shared workspace for safe, coordinated research. Plan instrument time, find operating guides, and keep the lab ready for the next experiment.
           </p>
 
           <div className="hero-actions">
@@ -163,6 +170,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {notice ? <Notice type={notice.type} message={notice.message} /> : null}
+      {user && !isTempUser ? <HomeCalendar user={user} week={week} /> : null}
 
       {isTempUser ? (
         <section className="panel">
@@ -235,7 +245,7 @@ export default async function HomePage() {
 
             <article className="panel">
               <div className="section-head">
-                <h2>Upcoming reservations</h2>
+                <h2>Upcoming shared instrument bookings</h2>
               </div>
               <SharedReservationsOverview
                 calendarHref="/instruments#reservation-calendar"

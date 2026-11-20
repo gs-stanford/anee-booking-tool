@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { InstrumentStatus, RiskAssessmentLevel, Role, SafetyMaterialFlow } from "@prisma/client";
+import { Prisma, InstrumentStatus, RiskAssessmentLevel, Role, SafetyMaterialFlow } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import path from "path";
@@ -15,6 +15,7 @@ import {
   requireAdmin,
   requireUser
 } from "@/lib/auth";
+import { validateSafetySlot } from "@/lib/home-calendar";
 import { db } from "@/lib/db";
 import { doesInstrumentUnavailabilityOverlap } from "@/lib/instrument-availability";
 import { parseLabDateTime } from "@/lib/lab-time";
@@ -60,6 +61,8 @@ const instrumentSchema = z
     name: z.string().trim().min(2),
     location: z.string().trim().min(2),
     description: z.string().trim().min(10),
+    impactCategory: z.enum(["GENERAL", "LASER", "CNT_REACTOR", "FUMEHOOD"]),
+    crossShared: z.boolean(),
     status: z.nativeEnum(InstrumentStatus),
     statusNote: z.string().trim().optional(),
     unavailableFrom: z.string().trim().optional(),
@@ -172,6 +175,8 @@ const instrumentDetailsSchema = z.object({
   name: z.string().trim().min(2),
   location: z.string().trim().min(2),
   description: z.string().trim().min(10),
+  impactCategory: z.enum(["GENERAL", "LASER", "CNT_REACTOR", "FUMEHOOD"]),
+  crossShared: z.boolean(),
   temporaryAccessEnabled: z.boolean()
 });
 
@@ -624,6 +629,8 @@ export async function createInstrumentAction(formData: FormData) {
   blockTempInternalToolAccess(user, "/instruments");
 
   const parsed = instrumentSchema.safeParse({
+    impactCategory: formData.get("impactCategory") || "GENERAL",
+    crossShared: formData.get("crossShared") === "on",
     name: formData.get("name"),
     location: formData.get("location"),
     description: formData.get("description"),
@@ -663,6 +670,8 @@ export async function updateInstrumentDetailsAction(formData: FormData) {
 
   const parsed = instrumentDetailsSchema.safeParse({
     instrumentId,
+    impactCategory: formData.get("impactCategory") || "GENERAL",
+    crossShared: formData.get("crossShared") === "on",
     name: formData.get("name"),
     location: formData.get("location"),
     description: formData.get("description"),
@@ -688,6 +697,8 @@ export async function updateInstrumentDetailsAction(formData: FormData) {
         name: parsed.data.name,
         location: parsed.data.location,
         description: parsed.data.description,
+        impactCategory: parsed.data.impactCategory,
+        crossShared: parsed.data.crossShared,
         temporaryAccessEnabled: parsed.data.temporaryAccessEnabled
       }
     });
@@ -1306,4 +1317,37 @@ export async function deleteRiskAssessmentAction(formData: FormData) {
   revalidatePath("/safety");
   revalidatePath("/safety/risk-assessment");
   redirect(withNotice("/safety/risk-assessment", "success", "Risk assessment deleted."));
+}
+
+export async function safetySignupAction(formData: FormData) {
+  const user = await requireUser();
+  blockTempInternalToolAccess(user, "/");
+  const date = String(formData.get("date") ?? "");
+  const time = String(formData.get("time") ?? "");
+  const week = Number(formData.get("week") ?? 0);
+  const target = Number.isInteger(week) && Math.abs(week) <= 52 ? `/?week=${week}` : "/";
+  const slot = validateSafetySlot(date, time);
+  if (!slot || slot <= new Date()) {
+    redirect(withNotice(target, "error", "Choose a future weekday safety slot at 9 am or 6 pm."));
+  }
+  const operation = formData.get("operation");
+  if (operation === "release") {
+    const result = await db.safetySignup.deleteMany({
+      where: { date, time, ...(user.role === Role.ADMIN ? {} : { userId: user.id }) }
+    });
+    if (!result.count) redirect(withNotice(target, "error", "You can only release your own signup."));
+  } else if (operation === "claim") {
+    try {
+      await db.safetySignup.create({ data: { date, time, userId: user.id } });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        redirect(withNotice(target, "error", "Someone has already claimed this slot. Choose another slot."));
+      }
+      throw error;
+    }
+  } else {
+    redirect(withNotice(target, "error", "Invalid signup action."));
+  }
+  revalidatePath("/");
+  redirect(withNotice(target, "success", operation === "release" ? "Safety slot released." : "You are signed up for the safety evaluation."));
 }

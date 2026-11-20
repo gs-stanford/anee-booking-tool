@@ -256,6 +256,7 @@ export default async function InstrumentsPage({
             <h1>Instrument hub</h1>
             <p className="muted">Browse instruments, open manuals, review maintenance history, and reserve time slots.</p>
           </div>
+          <Link className="button button-secondary" href="/instruments/labels">Print QR labels</Link>
           <Link className="button button-primary" href="/instruments/new">
             Add new instrument
           </Link>

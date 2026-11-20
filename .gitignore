@@ -14,3 +14,5 @@ storage/*.db
 storage/*.sqlite
 storage/manuals/*
 !storage/manuals/.gitkeep
+
+*.tsbuildinfo

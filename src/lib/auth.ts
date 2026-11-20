@@ -102,11 +102,11 @@ export async function getCurrentUser() {
   }
 }
 
-export async function requireUser() {
+export async function requireUser(returnTo?: string) {
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect("/login");
+    redirect(returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login");
   }
 
   return user;
