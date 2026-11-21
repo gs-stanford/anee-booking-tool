@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+import { outlookConfigured, syncConnectedOutlookCalendars, syncOutlookUser } from "@/lib/outlook";
 import { saveCalendarBooking } from "@/lib/calendar-booking";
 import { changeTeaPresenter, updateTeaTimeSignup } from "@/lib/tea-time";
 import { randomUUID } from "node:crypto";
@@ -663,6 +665,7 @@ export async function createInstrumentAction(formData: FormData) {
     }
   });
 
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath("/instruments");
   redirect(withNotice(`/instruments/${instrument.id}`, "success", "Instrument added."));
@@ -713,6 +716,7 @@ export async function updateInstrumentDetailsAction(formData: FormData) {
     redirect(withNotice(returnTo, "error", "Could not update instrument details. The name may already be in use."));
   }
 
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath("/instruments");
   revalidatePath(`/instruments/${parsed.data.instrumentId}`);
@@ -758,6 +762,7 @@ export async function updateInstrumentStatusAction(formData: FormData) {
     }
   });
 
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath("/instruments");
   revalidatePath(`/instruments/${parsed.data.instrumentId}`);
@@ -802,6 +807,7 @@ export async function claimInstrumentOwnershipAction(formData: FormData) {
     }
   });
 
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath("/instruments");
   revalidatePath(`/instruments/${instrumentId}`);
@@ -923,6 +929,7 @@ export async function deleteInstrumentAction(formData: FormData) {
     force: true
   });
 
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath("/instruments");
   redirect(withNotice("/instruments", "success", `Deleted ${instrument.name}.`));
@@ -1071,6 +1078,7 @@ export async function createReservationAction(formData: FormData) {
     )
   );
 
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath(`/instruments/${parsed.data.instrumentId}`);
   redirect(
@@ -1166,6 +1174,7 @@ export async function updateReservationAction(formData: FormData) {
     }
   });
 
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath(`/instruments/${parsed.data.instrumentId}`);
   redirect(withNotice(returnTo, "success", "Reservation updated."));
@@ -1196,6 +1205,7 @@ export async function cancelReservationAction(formData: FormData) {
     }
   });
 
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath(`/instruments/${instrumentId}`);
   redirect(withNotice(returnTo, "success", "Reservation canceled."));
@@ -1371,6 +1381,7 @@ export async function safetySignupAction(formData: FormData) {
   } else {
     redirect(withNotice(target, "error", "Invalid signup action."));
   }
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   redirect(withNotice(target, "success", operation === "release-series" ? "Remaining weekly signups canceled." : operation === "release" ? "This date canceled; other weekly signups are unchanged." : operation === "claim" ? "Weekly safety signup reserved through the end of the quarter." : "Safety signup reserved for this date."));
 }
@@ -1384,6 +1395,7 @@ export async function teaTimeSignupAction(formData: FormData) {
   const target = Number.isInteger(week) && Math.abs(week) <= 156 ? `/?week=${week}` : "/";
   const changed = await updateTeaTimeSignup(db, user, date, operation);
   if (!changed) redirect(withNotice(target, "error", "This presentation is no longer available, has started, or belongs to another presenter."));
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   redirect(withNotice(target, "success", operation === "release" ? "Tea Time signup canceled. The slot is open again." : "You are signed up to present at Tea Time."));
 }
@@ -1398,6 +1410,7 @@ export async function changeTeaPresenterAction(formData: FormData) {
   } catch (error) {
     redirect(withNotice(target, "error", error instanceof Error ? error.message : "Could not update presenters."));
   }
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   redirect(withNotice(target, "success", swapDate ? "Tea Time presenters swapped." : "Tea Time presenter updated."));
 }
@@ -1411,11 +1424,12 @@ export async function saveCalendarBookingAction(formData: FormData) {
   const target = `/?week=${homeScheduleWeek(resultWeek)}`;
   try {
     const id = String(formData.get("eventId") ?? "");
-    await saveCalendarBooking(db, user, Object.fromEntries(formData.entries()), id ? { id, version: Number(formData.get("version")) } : undefined);
+    await saveCalendarBooking(db, user, {...Object.fromEntries(formData.entries()), inviteeIds:formData.getAll("inviteeIds").map(String)}, id ? { id, version: Number(formData.get("version")) } : undefined);
   } catch (error) {
     const message = error instanceof z.ZodError ? "Please complete the date and time fields correctly." : error instanceof Error ? error.message : "Unable to save this booking.";
     redirect(withNotice(target, "error", message));
   }
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   revalidatePath("/instruments");
   if (formData.get("instrumentId")) revalidatePath(`/instruments/${String(formData.get("instrumentId"))}`);
@@ -1429,6 +1443,41 @@ export async function cancelLabEventAction(formData: FormData) {
   const target = Number.isInteger(week) && Math.abs(week) <= 156 ? `/?week=${week}` : "/";
   const result = await db.labEvent.deleteMany({ where: { id: String(formData.get("eventId") ?? ""), version: Number(formData.get("version")), ...(user.role === Role.ADMIN ? {} : { ownerId: user.id }) } });
   if (!result.count) redirect(withNotice(target, "error", "The event changed or you do not have permission to cancel it."));
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
   redirect(withNotice(target, "success", "Cross-impact event canceled."));
+}
+
+export async function moveCalendarBookingAction(input: import("@/lib/calendar-move").MoveBooking) {
+  const user = await requireUser();
+  try {
+    const { moveCalendarBooking } = await import("@/lib/calendar-move");
+    await moveCalendarBooking(db, user, input);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not move this booking." };
+  }
+  if (outlookConfigured()) after(syncConnectedOutlookCalendars);
+  revalidatePath("/");
+  revalidatePath("/instruments", "layout");
+  return { success: "Booking rescheduled." };
+}
+
+export async function syncMyOutlookAction() {
+  const user = await requireUser();
+  if (user.role === Role.TEMP) redirect("/account");
+  await syncOutlookUser(user.id);
+  revalidatePath("/account");
+  redirect("/account");
+}
+export async function disconnectOutlookAction() {
+  const user = await requireUser();
+  await db.outlookConnection.updateMany({where:{userId:user.id},data:{refreshToken:"",lastError:null}});
+  revalidatePath("/account");
+  redirect(withNotice("/account","success","Outlook disconnected. Existing Outlook entries remain; no new changes will sync."));
+}
+export async function moveCalendarBookingFormAction(form:FormData) {
+  const input={id:String(form.get("id")),kind:String(form.get("kind")) as "instrument"|"impact",originalStart:String(form.get("originalStart")),originalEnd:String(form.get("originalEnd")),date:String(form.get("date")),time:String(form.get("time")??"00:00")};
+  const result=await moveCalendarBookingAction(input);
+  const week=homeScheduleWeek(Number(form.get("week")));
+  redirect(`${withNotice(`/?week=${week}`,result.error?"error":"success",result.error??result.success??"Booking updated.")}#lab-calendar`);
 }

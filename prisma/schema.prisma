@@ -36,6 +36,9 @@ model User {
   passwordHash       String
   role               Role               @default(MEMBER)
   calendarAccessOnHold Boolean          @default(false)
+  outlookConnection OutlookConnection?
+  reservationInvites ReservationInvite[]
+  eventInvites LabEventInvite[]
   ownedInstruments   Instrument[]       @relation("InstrumentOwner")
   labEvents          LabEvent[]
   teaTimePresentations TeaTimeSession[]
@@ -97,6 +100,7 @@ model MaintenanceEntry {
 }
 
 model Reservation {
+  invitees ReservationInvite[]
   id           String     @id @default(cuid())
   instrumentId String
   instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
@@ -182,6 +186,7 @@ model TeaTimeSession {
 }
 
 model LabEvent {
+  invitees LabEventInvite[]
   id          String @id @default(cuid())
   title       String
   location    String
@@ -194,4 +199,43 @@ model LabEvent {
   createdAt   DateTime @default(now())
 
   @@index([startAt, endAt])
+}
+
+model ReservationInvite {
+  reservationId String
+  userId String
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([reservationId, userId])
+  @@index([userId])
+}
+model LabEventInvite {
+  eventId String
+  userId String
+  event LabEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([eventId, userId])
+  @@index([userId])
+}
+
+model OutlookConnection {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  microsoftId String @unique
+  email String
+  refreshToken String
+  calendarId String?
+  lastSyncedAt DateTime?
+  lastError String?
+  lockUntil DateTime?
+  items OutlookSyncItem[]
+}
+model OutlookSyncItem {
+  userId String
+  sourceKey String
+  remoteId String
+  contentHash String
+  endAt DateTime
+  connection OutlookConnection @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  @@id([userId, sourceKey])
 }

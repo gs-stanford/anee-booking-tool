@@ -40,7 +40,6 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
   const parsedWeek = Number.isFinite(jump) ? Math.floor((jump - Date.parse(`${getStartOfLabWeekDateKey(new Date())}T12:00:00Z`)) / 604800000) : Number(getSingleParam(query, "week") ?? 0);
   const week = homeScheduleWeek(parsedWeek);
   const user = await getCurrentUser();
-  if (user && user.role !== Role.TEMP) return <>{notice && <Notice type={notice.type} message={notice.message} />}<HomeCalendar user={user} week={week} /></>;
   const data = await loadHomeData();
   const { instrumentCount, userCount, upcomingReservationCount, instruments } = data;
   const isTempUser = user?.role === Role.TEMP;

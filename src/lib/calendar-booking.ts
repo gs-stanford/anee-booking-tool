@@ -6,6 +6,7 @@ import { SAFETY_SCHEDULE_START } from "@/lib/home-schedule";
 import { isSharedImpact } from "@/lib/home-calendar";
 
 export const calendarBookingSchema = z.object({
+  inviteeIds: z.array(z.string().min(1)).max(100).optional(),
   kind: z.enum(["instrument", "event"]),
   allDay: z.enum(["on", "off"]).optional(),
   instrumentId: z.string().optional(),
@@ -33,20 +34,25 @@ export async function saveCalendarBooking(client: PrismaClient, user: { id: stri
   if (allDay && getLabDateKey(parseLabDateTime(input.endDate, "00:00")) !== input.endDate) throw new Error("Choose a valid end date.");
   if (!Number.isFinite(startAt.getTime()) || !Number.isFinite(endAt.getTime()) || (allDay ? input.startDate < getLabDateKey(now) : startAt <= now) || endAt <= startAt || getLabDateKey(startAt) !== input.startDate || getLabDateKey(endAt) !== endDate || getLabTimeKey(startAt) !== startTime || getLabTimeKey(endAt) !== endTime) throw new Error("Choose valid future start and end times in the lab timezone.");
   return client.$transaction(async tx => {
+    const inviteeIds = [...new Set(input.inviteeIds ?? [])].filter(id => id !== user.id);
+    if (await tx.user.count({where:{id:{in:inviteeIds},role:{not:Role.TEMP}}}) !== inviteeIds.length) throw new Error("Choose valid lab members to invite.");
+    const invitees = inviteeIds.map(userId => ({userId}));
     if (input.kind === "instrument") {
       if (edit) throw new Error("Edit instrument reservations from the instrument calendar.");
       const instrument = await tx.instrument.findUnique({ where: { id: input.instrumentId || "" } });
       if (!instrument || !isSharedImpact(instrument)) throw new Error("Choose a shared or cross-impact instrument.");
       if (doesInstrumentUnavailabilityOverlap(instrument, startAt, endAt)) throw new Error("This instrument is unavailable during that time.");
       if (await tx.reservation.findFirst({ where: { instrumentId: instrument.id, startAt: { lt: endAt }, endAt: { gt: startAt } } })) throw new Error("That instrument is already reserved during this time.");
-      await tx.reservation.create({ data: { instrumentId: instrument.id, userId: user.id, startAt, endAt, purpose: input.notes || null } });
+      await tx.reservation.create({ data: { instrumentId: instrument.id, userId: user.id, startAt, endAt, purpose: input.notes || null, invitees:{create:invitees} } });
     } else {
       if (!input.title || !input.location || !input.impact) throw new Error("Add an event title, location and impact on the lab.");
       const data = { title: input.title, location: input.location, impact: input.impact, startAt, endAt };
       if (edit) {
         const result = await tx.labEvent.updateMany({ where: { id: edit.id, version: edit.version, ...(user.role === Role.ADMIN ? {} : { ownerId: user.id }) }, data: { ...data, version: { increment: 1 } } });
         if (!result.count) throw new Error("The event changed or you do not have permission to edit it.");
-      } else await tx.labEvent.create({ data: { ...data, ownerId: user.id } });
+        await tx.labEventInvite.deleteMany({where:{eventId:edit.id}});
+        for (const invite of invitees) await tx.labEventInvite.create({data:{eventId:edit.id,...invite}});
+      } else await tx.labEvent.create({ data: { ...data, ownerId: user.id, invitees:{create:invitees} } });
     }
   });
 }

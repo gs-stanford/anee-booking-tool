@@ -1,4 +1,6 @@
-import { changePasswordAction } from "@/app/actions";
+import { db } from "@/lib/db";
+import { outlookConfigured } from "@/lib/outlook";
+import { changePasswordAction, disconnectOutlookAction, syncMyOutlookAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { requireUser } from "@/lib/auth";
 import { getNotice } from "@/lib/utils";
@@ -42,6 +44,8 @@ export default async function AccountPage({
     );
   }
 
+  const connection=await db.outlookConnection.findUnique({where:{userId:user.id},select:{email:true,refreshToken:true,lastError:true,lastSyncedAt:true}});
+  const connected=Boolean(connection?.refreshToken);
   return (
     <div className="two-column">
       <section className="panel">
@@ -85,6 +89,19 @@ export default async function AccountPage({
             Save new password
           </button>
         </form>
+      </section>
+      <section className="panel" style={{gridColumn:"1 / -1"}}>
+        <h2>Outlook calendar</h2>
+        <p>Your bookings, safety shifts, Tea Time presentations, and events you’re invited to sync to a separate Boies Lab calendar. Changes flow from this site to Outlook; edit lab reservations here.</p>
+        {!outlookConfigured() ? <p className="muted">Direct Outlook connection is awaiting administrator setup.</p> : <>
+          {connected ? <>
+            <p>Connected: {connection?.email}</p>
+            {connection?.lastSyncedAt && <p className="muted">Last synced: {connection.lastSyncedAt.toLocaleString("en-US",{timeZone:"America/Los_Angeles"})} Pacific</p>}
+            {connection?.lastError && <p role="alert">{connection.lastError}</p>}
+            <div className="inline-actions"><form action={syncMyOutlookAction}><button className="button button-secondary">Sync now</button></form><Link className="button button-ghost" href="/api/outlook/connect" prefetch={false}>Reconnect</Link><form action={disconnectOutlookAction}><button className="button button-ghost">Disconnect</button></form></div>
+            <small>Disconnecting stops updates and keeps existing entries in Outlook.</small>
+          </> : <Link className="button button-primary" href="/api/outlook/connect" prefetch={false}>Connect Outlook</Link>}
+        </>}
       </section>
     </div>
   );

@@ -1583,3 +1583,17 @@ details.safety-slot { display: block; padding: 0; }
 }
 .calendar-scroll { max-height: 72vh; overflow: auto; }
 .dialog-body .calendar-all-day-toggle { display: flex; }
+.schedule-interaction.is-dragging { user-select: none; cursor: grabbing; }
+.schedule-event.is-movable, .schedule-banner.is-movable { cursor: grab; }
+.schedule-drag-preview { position: absolute; left: 2px; right: 2px; z-index: 4; border: 2px solid #8c1515; background: #8c151522; pointer-events: none; padding: 3px; font-size: 12px; overflow: hidden; }
+.schedule-message { margin: 0; padding: 8px 16px; font-size: 14px; background: #f6f3f0; }
+/* 48px/hour keeps the working day visible while retaining 30-minute targets. */
+.schedule-track, .schedule-time-track { height: 1152px; }
+.schedule-track { background: repeating-linear-gradient(to bottom, transparent 0, transparent 23px, #f4f4f6 23px, #f4f4f6 24px, transparent 24px, transparent 47px, #e8e8ed 47px, #e8e8ed 48px); }
+.schedule-empty-slot { height: 24px; }
+.schedule-event { padding: 0 4px; font-size: 11px; line-height: 11px; }
+.schedule-scroll { height: max(504px, 65vh); min-height: 504px; }
+.schedule-dates .schedule-heading { height: 48px; }
+.schedule-toolbar { padding: 10px 16px; }
+.schedule-navigation { padding: 0 16px 8px; }
+.schedule-all-day [data-drag-selected="true"] { background: #8c151522; outline: 2px solid #8c1515; outline-offset: -2px; }

@@ -4,10 +4,10 @@ import { saveCalendarBookingAction } from "@/app/actions";
 import { CalendarDialog } from "@/components/calendar-dialog";
 import { shiftDateString } from "@/lib/lab-time";
 import { SubmitButton } from "@/components/submit-button";
-export type EventEdit = { id: string; version: number; title: string; location: string; impact: string; startDate: string; endDate: string; startTime: string; endTime: string };
-export type BookingDraft = { date: string; time?: string; allDay?: boolean };
-export type CalendarBookingOptions = { week: number; instruments: { id: string; name: string }[]; timeZone: string };
-export function CalendarBookingForm({ date, week, instruments, timeZone, event, draft, onClose }: CalendarBookingOptions & { date: string; event?: EventEdit; draft?: BookingDraft; onClose?: () => void }) {
+export type EventEdit = { inviteeIds?: string[]; id: string; version: number; title: string; location: string; impact: string; startDate: string; endDate: string; startTime: string; endTime: string };
+export type BookingDraft = { date: string; time?: string; endDate?: string; endTime?: string; allDay?: boolean };
+export type CalendarBookingOptions = { week: number; instruments: { id: string; name: string }[]; timeZone: string; members?: {id:string;name:string}[] };
+export function CalendarBookingForm({ date, week, instruments, timeZone, members = [], event, draft, onClose }: CalendarBookingOptions & { date: string; event?: EventEdit; draft?: BookingDraft; onClose?: () => void }) {
   const [kind, setKind] = useState(event || !instruments.length ? "event" : "instrument");
   const id = useId();
   const isAllDay = Boolean(event && event.startTime === "00:00" && event.endTime === "00:00" && event.endDate > event.startDate);
@@ -16,8 +16,8 @@ export function CalendarBookingForm({ date, week, instruments, timeZone, event, 
   const [startTime, setStartTime] = useState(initialTime);
   const [allDay, setAllDay] = useState(isAllDay || Boolean(draft?.allDay));
   const initialMinutes = Number(initialTime.slice(0, 2)) * 60 + Number(initialTime.slice(3)) + 60;
-  const [endDate, setEndDate] = useState(event ? (isAllDay ? shiftDateString(event.endDate, -1) : event.endDate) : shiftDateString(date, initialMinutes >= 1440 && !draft?.allDay ? 1 : 0));
-  const [endTime, setEndTime] = useState(event?.endTime ?? `${String(Math.floor(initialMinutes / 60) % 24).padStart(2, "0")}:${String(initialMinutes % 60).padStart(2, "0")}`);
+  const [endDate, setEndDate] = useState(event ? (isAllDay ? shiftDateString(event.endDate, -1) : event.endDate) : draft?.endDate ?? shiftDateString(date, initialMinutes >= 1440 && !draft?.allDay ? 1 : 0));
+  const [endTime, setEndTime] = useState(event?.endTime ?? draft?.endTime ?? `${String(Math.floor(initialMinutes / 60) % 24).padStart(2, "0")}:${String(initialMinutes % 60).padStart(2, "0")}`);
   function updateStartDate(value: string) {
     if (value && startDate) {
       const offset = Math.round((Date.parse(`${endDate}T12:00Z`) - Date.parse(`${startDate}T12:00Z`)) / 86400000);
@@ -52,6 +52,7 @@ export function CalendarBookingForm({ date, week, instruments, timeZone, event, 
       </div>
       {allDay ? <small>Includes every selected date, from midnight through midnight after the end date.</small> : endDate > startDate && <small>Overnight / multi-day booking · ends {endDate} at {endTime}.</small>}
       {kind === "instrument" && <div className="field"><label htmlFor={`${id}-notes`}>Notes (optional)</label><textarea id={`${id}-notes`} name="notes" maxLength={2000} placeholder="Setup, experiment details, or anything other lab users should know." /></div>}
+      {members.length > 0 && <details className="calendar-invitees"><summary>Invite lab members</summary><p className="muted">Selected members can include this event in their connected Outlook calendar.</p>{members.map(member => <label className="calendar-all-day-toggle" key={member.id}><input type="checkbox" name="inviteeIds" value={member.id} defaultChecked={event?.inviteeIds?.includes(member.id)} />{member.name}</label>)}</details>}
       <SubmitButton label={event ? "Save event changes" : "Save booking"} />
     </form>
   </CalendarDialog>;

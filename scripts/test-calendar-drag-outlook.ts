@@ -1,0 +1,75 @@
+import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { db } from "../src/lib/db";
+import { saveCalendarBooking } from "../src/lib/calendar-booking";
+import { moveCalendarBooking } from "../src/lib/calendar-move";
+import { personalCalendarEvents } from "../src/lib/personal-calendar";
+import { openOutlook, sealOutlook, syncOutlookUser } from "../src/lib/outlook";
+import { parseLabDateTime } from "../src/lib/lab-time";
+async function main() {
+  if(process.env.DATABASE_URL!=="file:/private/tmp/lab-calendar-test.db") throw Error("Use isolated test DB");
+  const originalFetch=globalThis.fetch;
+  const suffix=Date.now();
+  const a=await db.user.create({data:{name:"Drag Owner",email:`drag-a-${suffix}@example.test`,passwordHash:"test"}});
+  const b=await db.user.create({data:{name:"Other Owner",email:`drag-b-${suffix}@example.test`,passwordHash:"test"}});
+  const instrument=await db.instrument.create({data:{name:`Drag test ${suffix}`,description:"test",location:"test",crossShared:true}});
+  const now=new Date("2026-11-20T20:00:00Z");
+  try {
+    const original=await db.reservation.create({data:{userId:a.id,instrumentId:instrument.id,startAt:parseLabDateTime("2027-01-09","23:30"),endAt:parseLabDateTime("2027-01-10","01:00")}});
+    const move={id:original.id,kind:"instrument" as const,originalStart:original.startAt.toISOString(),originalEnd:original.endAt.toISOString(),date:"2027-01-10",time:"10:00"};
+    await assert.rejects(moveCalendarBooking(db,b,move,now));
+    await moveCalendarBooking(db,a,move,now);
+    const changed=await db.reservation.findUniqueOrThrow({where:{id:original.id}});
+    assert.equal(changed.endAt.getTime()-changed.startAt.getTime(),90*60000);
+    await assert.rejects(moveCalendarBooking(db,a,move,now),"stale drag rejected");
+    const blocker=await db.reservation.create({data:{userId:b.id,instrumentId:instrument.id,startAt:parseLabDateTime("2027-01-11","10:00"),endAt:parseLabDateTime("2027-01-11","12:00")}});
+    const updatedMove={...move,originalStart:changed.startAt.toISOString(),originalEnd:changed.endAt.toISOString(),date:"2027-01-11"};
+    await assert.rejects(moveCalendarBooking(db,a,updatedMove,now),"conflict rejected");
+    assert.equal((await db.reservation.findUniqueOrThrow({where:{id:original.id}})).startAt.toISOString(),changed.startAt.toISOString());
+    await db.instrument.update({where:{id:instrument.id},data:{status:"UNAVAILABLE"}});
+    await assert.rejects(moveCalendarBooking(db,a,{...updatedMove,date:"2027-01-12"},now));
+    await db.instrument.update({where:{id:instrument.id},data:{status:"AVAILABLE"}});
+    await saveCalendarBooking(db,b,{kind:"event",title:"Invited event",location:"test",impact:"test",startDate:"2027-01-12",endDate:"2027-01-12",startTime:"12:00",endTime:"13:00",inviteeIds:[a.id]},undefined,now);
+    assert.equal(await db.labEventInvite.count({where:{userId:a.id}}),1);
+    await db.safetySignup.createMany({data:[{date:"2028-12-04",time:"09:00",userId:a.id},{date:"2028-12-04",time:"18:00",userId:b.id}]});
+    await db.teaTimeSession.create({data:{date:"2028-12-04",presenterId:a.id}});
+    const personal=await personalCalendarEvents(db,a.id,now);
+    assert.equal(personal.length,4);
+    assert.equal(personal.some(e=>e.key===`reservation:${blocker.id}`),false);
+    assert.equal(personal.filter(e=>e.key.startsWith("safety:")).length,1);
+    process.env.OUTLOOK_CLIENT_ID="test";process.env.OUTLOOK_CLIENT_SECRET="test";process.env.OUTLOOK_TENANT_ID="test";process.env.APP_URL="https://lab.example.test";process.env.OUTLOOK_TOKEN_ENCRYPTION_KEY=randomBytes(32).toString("base64");
+    assert.equal(openOutlook(sealOutlook("test-refresh")),"test-refresh");
+    const sealed=Buffer.from(sealOutlook("secret"),"base64url");sealed[30]^=1;
+    assert.throws(()=>openOutlook(sealed.toString("base64url")));
+    await db.outlookConnection.create({data:{userId:a.id,microsoftId:`test-${suffix}`,email:a.email,refreshToken:sealOutlook("test-refresh")}});
+    const calls:{url:string;method:string;body:Record<string,unknown>}[]=[];
+    globalThis.fetch=async(input,init)=>{
+      const url=String(input),method=init?.method??"GET";
+      if(url.includes("/token")) return Response.json({access_token:"mock-access",refresh_token:"rotated-refresh"});
+      const body=init?.body?JSON.parse(String(init.body)):{};
+      calls.push({url,method,body});
+      if(url.endsWith("/me/calendars"))return Response.json({id:"calendar-test"});
+      if(method==="DELETE")return new Response(null,{status:204});
+      return Response.json({id:`event-${calls.length}`});
+    };
+    await syncOutlookUser(a.id);
+    assert.equal(calls.filter(c=>c.method==="POST"&&c.url.endsWith("/events")).length,4);
+    assert.equal(calls.some(c=>"attendees" in c.body),false,"does not send invitations from Graph");
+    assert.equal(openOutlook((await db.outlookConnection.findUniqueOrThrow({where:{userId:a.id}})).refreshToken),"rotated-refresh");
+    const count=calls.length;await syncOutlookUser(a.id);assert.equal(calls.length,count,"unchanged events not duplicated");
+    await moveCalendarBooking(db,a,{...updatedMove,date:"2027-01-13"},now);
+    await syncOutlookUser(a.id);assert.equal(calls.filter(c=>c.method==="PATCH").length,1);
+    await db.reservation.delete({where:{id:original.id}});await syncOutlookUser(a.id);assert.equal(calls.filter(c=>c.method==="DELETE").length,1);
+    await db.labEventInvite.deleteMany({where:{userId:a.id}});await syncOutlookUser(a.id);assert.equal(calls.filter(c=>c.method==="DELETE").length,2);
+    await db.outlookConnection.update({where:{userId:a.id},data:{refreshToken:""}});
+    const disconnectedCount=calls.length;await syncOutlookUser(a.id);assert.equal(calls.length,disconnectedCount);
+    console.log("PASS: drag ownership, stale/conflicting/unavailable moves, overnight duration, per-user/invited-only events, token encryption, Graph create/update/delete, deduplication, refresh rotation and disconnect.");
+  } finally {
+    globalThis.fetch=originalFetch;
+    await db.teaTimeSession.deleteMany({where:{date:"2028-12-04"}});
+    await db.instrument.delete({where:{id:instrument.id}});
+    await db.user.deleteMany({where:{id:{in:[a.id,b.id]}}});
+    await db.$disconnect();
+  }
+}
+main().catch(error=>{console.error(error);process.exitCode=1;});
