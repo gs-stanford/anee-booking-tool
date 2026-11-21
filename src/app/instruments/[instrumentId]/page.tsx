@@ -4,7 +4,6 @@ import { InstrumentStatus, Role } from "@prisma/client";
 import { notFound } from "next/navigation";
 
 import {
-  addMaintenanceEntryAction,
   cancelReservationAction,
   claimInstrumentOwnershipAction,
   createReservationAction,
@@ -81,14 +80,6 @@ export default async function InstrumentDetailPage({
       manuals: {
         orderBy: {
           uploadedAt: "desc"
-        }
-      },
-      maintenanceEntries: {
-        orderBy: {
-          performedAt: "desc"
-        },
-        include: {
-          performedBy: true
         }
       },
       reservations: {
@@ -511,77 +502,7 @@ export default async function InstrumentDetailPage({
             {renderManualPanel(true)}
           </div>
 
-          <section className="panel">
-            <div className="section-head">
-              <div>
-                <h2>Maintenance sheet</h2>
-                <p className="muted">
-                  This replaces the uploaded Excel concept with a live, always-loaded table for maintenance history.
-                </p>
-              </div>
-            </div>
 
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Performed by</th>
-                    <th>Status</th>
-                    <th>Summary</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {instrument.maintenanceEntries.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="muted">
-                        No maintenance entries have been logged yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    instrument.maintenanceEntries.map((entry) => (
-                      <tr key={entry.id}>
-                        <td>{formatDate(entry.performedAt)}</td>
-                        <td>{entry.performedBy?.name ?? "Unassigned"}</td>
-                        <td>{entry.status}</td>
-                        <td>{entry.summary}</td>
-                        <td>{entry.notes ?? "N/A"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <form action={addMaintenanceEntryAction} className="form-grid" style={{ marginTop: 20 }}>
-              <input type="hidden" name="instrumentId" value={instrument.id} />
-              <div className="form-grid two-up">
-                <div className="field">
-                  <label htmlFor="performedAt">Maintenance date</label>
-                  <input id="performedAt" name="performedAt" type="date" required />
-                </div>
-                <div className="field">
-                  <label htmlFor="status">Status</label>
-                  <input id="status" name="status" placeholder="Passed calibration" required />
-                </div>
-              </div>
-
-              <div className="field">
-                <label htmlFor="summary">Summary</label>
-                <input id="summary" name="summary" placeholder="Quarterly alignment and optics cleaning" required />
-              </div>
-
-              <div className="field">
-                <label htmlFor="notes">Notes</label>
-                <textarea id="notes" name="notes" placeholder="Optional details, part replacements, or follow-up actions." />
-              </div>
-
-              <button className="button button-secondary" type="submit">
-                Add maintenance row
-              </button>
-            </form>
-          </section>
         </div>
       ) : null}
     </div>

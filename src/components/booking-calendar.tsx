@@ -462,16 +462,7 @@ export function BookingCalendar({
             </p>
           </div>
 
-          <div className="field">
-            <label htmlFor="purpose">Purpose</label>
-            <input
-              id="purpose"
-              name="purpose"
-              onChange={(event) => setPurpose(event.target.value)}
-              placeholder="Imaging session"
-              value={purpose}
-            />
-          </div>
+          <input type="hidden" name="purpose" value={purpose} />
 
           <div className="inline-actions">
             <button className="button button-primary" disabled={!canSubmit} type="submit">

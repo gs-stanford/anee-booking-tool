@@ -155,6 +155,7 @@ model RiskAssessment {
 }
 
 model SafetySignup {
+  seriesId  String?
   id        String   @id @default(cuid())
   date      String
   time      String
@@ -162,6 +163,7 @@ model SafetySignup {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
+  @@index([seriesId])
   @@unique([date, time])
   @@index([userId])
 }

@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { quarterSignupDates } from "@/lib/academic-quarters";
 import bcrypt from "bcryptjs";
 import { Prisma, InstrumentStatus, RiskAssessmentLevel, Role, SafetyMaterialFlow } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -18,7 +20,7 @@ import {
 import { validateSafetySlot } from "@/lib/home-calendar";
 import { db } from "@/lib/db";
 import { doesInstrumentUnavailabilityOverlap } from "@/lib/instrument-availability";
-import { parseLabDateTime } from "@/lib/lab-time";
+import { getLabDateKey, getLabTimeKey, parseLabDateTime } from "@/lib/lab-time";
 import { parseRiskAssessmentHazardsJson } from "@/lib/risk-assessment";
 import { getManualsRoot } from "@/lib/storage";
 
@@ -1325,23 +1327,38 @@ export async function safetySignupAction(formData: FormData) {
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const week = Number(formData.get("week") ?? 0);
-  const target = Number.isInteger(week) && Math.abs(week) <= 52 ? `/?week=${week}` : "/";
+  const target = Number.isInteger(week) && Math.abs(week) <= 156 ? `/?week=${week}` : "/";
   const slot = validateSafetySlot(date, time);
   if (!slot || slot <= new Date()) {
     redirect(withNotice(target, "error", "Choose a future weekday safety slot at 9 am or 6 pm."));
   }
   const operation = formData.get("operation");
-  if (operation === "release") {
+  if (operation === "release-series") {
+    const signup = await db.safetySignup.findUnique({ where: { date_time: { date, time } } });
+    if (!signup?.seriesId || (signup.userId !== user.id && user.role !== Role.ADMIN)) {
+      redirect(withNotice(target, "error", "You can only cancel your own weekly signup."));
+    }
+    const now = new Date();
+    const today = getLabDateKey(now);
+    await db.safetySignup.deleteMany({ where: {
+      seriesId: signup.seriesId,
+      ...(user.role === Role.ADMIN ? {} : { userId: user.id }),
+      OR: [{ date: { gt: today } }, { date: today, time: { gt: getLabTimeKey(now) } }]
+    } });
+  } else if (operation === "release") {
     const result = await db.safetySignup.deleteMany({
       where: { date, time, ...(user.role === Role.ADMIN ? {} : { userId: user.id }) }
     });
     if (!result.count) redirect(withNotice(target, "error", "You can only release your own signup."));
-  } else if (operation === "claim") {
+  } else if (operation === "claim" || operation === "claim-once") {
+    const dates = operation === "claim" ? quarterSignupDates(date, time) : [date];
+    if (!dates.length) redirect(withNotice(target, "error", "No published quarter covers this date. Use a one-date signup during breaks."));
+    const seriesId = operation === "claim" ? randomUUID() : null;
     try {
-      await db.safetySignup.create({ data: { date, time, userId: user.id } });
+      await db.$transaction(dates.map(day => db.safetySignup.create({ data: { date: day, time, userId: user.id, seriesId } })));
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        redirect(withNotice(target, "error", "Someone has already claimed this slot. Choose another slot."));
+        redirect(withNotice(target, "error", "One or more dates are already reserved. No dates were booked. Choose another weekly slot or sign up for individual open dates."));
       }
       throw error;
     }
@@ -1349,5 +1366,5 @@ export async function safetySignupAction(formData: FormData) {
     redirect(withNotice(target, "error", "Invalid signup action."));
   }
   revalidatePath("/");
-  redirect(withNotice(target, "success", operation === "release" ? "Safety slot released." : "You are signed up for the safety evaluation."));
+  redirect(withNotice(target, "success", operation === "release-series" ? "Remaining weekly signups canceled." : operation === "release" ? "This date canceled; other weekly signups are unchanged." : operation === "claim" ? "Weekly safety signup reserved through the end of the quarter." : "Safety signup reserved for this date."));
 }

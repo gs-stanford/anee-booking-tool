@@ -108,7 +108,7 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
   const query = await searchParams;
   const notice = getNotice(query);
   const parsedWeek = Number(getSingleParam(query, "week") ?? 0);
-  const week = Number.isInteger(parsedWeek) ? Math.max(-52, Math.min(52, parsedWeek)) : 0;
+  const week = Number.isInteger(parsedWeek) ? Math.max(-156, Math.min(156, parsedWeek)) : 0;
   const [user, data] = await Promise.all([getCurrentUser(), loadHomeData()]);
   const {
     instrumentCount,

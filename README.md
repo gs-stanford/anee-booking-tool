@@ -183,3 +183,14 @@ Open `/instruments/labels` to print all instrument QR labels, or use Print QR la
 The UI uses Stanford Cardinal red, Source Sans 3 and Source Serif 4, following the [Stanford identity guide](https://identity.stanford.edu/).
 
 Render runs `prisma migrate deploy` before starting the service, applying the additive safety-signup and instrument-visibility migration automatically.
+
+## Weekly safety signup series (2026–2028)
+
+“Reserve weekly” books the selected weekday/time from the selected date through that quarter's last examination day, including holidays within the quarter. “This date only” is available for cover and quarter breaks. “Cancel this date” frees just that occurrence; “Cancel remaining quarter” frees every future occurrence in that series while preserving past assignments. Existing one-off reservations are not converted. If any occurrence is occupied, the whole new series is rejected with no partial booking.
+
+Quarter bounds in `src/lib/academic-quarters.ts` use Stanford's detailed 2025–26 and 2026–27 calendars, plus the Registrar's multi-year projection linked from https://studentservices.stanford.edu/calendar-events/academic-calendars/future-academic-calendars for Autumn 2027 through Autumn 2028. Future dates are subject to change. Holidays are not automatically excluded because these are lab safety duties rather than class meetings.
+
+The instrument booking form no longer displays the Purpose field, and instrument pages no longer display the Maintenance sheet. Existing stored data is retained.
+
+Regression check (after migrations on the isolated test database):
+`DATABASE_URL=file:/private/tmp/lab-calendar-test.db node --import tsx scripts/test-quarter-signups.ts`
