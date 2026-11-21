@@ -1,0 +1,51 @@
+Subject: Review request — Boies Lab website: Outlook calendar sync, Microsoft sign-in, and optional Teams meetings
+
+Hi Stanford IT,
+
+I maintain the Boies Group lab scheduling website, https://lab.amboies.com. I’m requesting review and approval for a custom Microsoft Graph integration with Stanford Microsoft 365, plus a single-tenant Microsoft Entra app registration. Please route this to the Microsoft 365/Entra team and any required security review.
+
+The site manages instrument reservations, recurring lab safety assignments, Tea Time presentations, and lab meetings. We want each consenting member to receive only their own assignments, bookings they created, and events they are explicitly invited to in Outlook. We also want members to sign in with their linked Stanford Microsoft account and optionally create a Teams link for a lab meeting.
+
+APPLICATION AND REGISTRATION
+• Proposed name: Boies Lab scheduling
+• Requester/technical contact: Gaurav Sharma, Boies Group (please use my Stanford contact details on this request)
+• Website/application URL: https://lab.amboies.com
+• Platform: confidential server-side Web application; single tenant, Stanford organizational accounts only
+• Exact Web redirect URI: https://lab.amboies.com/api/outlook/callback
+• Authentication: OAuth 2.0 authorization code flow with PKCE (S256), expiring state, and server-side token exchange. No implicit flow or public-client flow is required.
+• Hosting: existing Render Node.js web service in Oregon, with a persistent SQLite database. This is a custom lab-managed website, not a Microsoft-hosted application or packaged Outlook add-in.
+
+REQUESTED DELEGATED PERMISSIONS
+1. User.Read — identify the consenting Microsoft account using its stable Microsoft user ID and profile email.
+2. Calendars.ReadWrite — create and maintain a separate “Boies Lab” calendar in that consenting user’s mailbox.
+3. offline_access — refresh the user’s authorization so lab booking changes can sync without repeated interactive sign-in.
+4. Optional: OnlineMeetings.ReadWrite — create, update, and delete Teams meetings as the consenting meeting organizer. This feature can remain disabled if it requires a separate review.
+
+No application permissions, tenant-wide unattended mailbox access, Mail.Read, Mail.ReadWrite, Mail.Send, directory-wide read, chat access, recordings, or transcripts are requested. We understand Calendars.ReadWrite technically permits access to the consenting user’s calendars more broadly; the implementation limits its operations to the dedicated calendar and its own tracked events. Please confirm whether this calendar-only use is eligible under Stanford’s policy restricting third-party access to the email system.
+
+FUNCTIONAL SCOPE
+• Sync is one-way: lab site → Outlook. Edits and cancellations are made on the lab site.
+• Only the connected user’s bookings, assigned safety shifts, Tea Time presentations, and explicitly invited events are exported. Other members’ events are excluded.
+• The integration does not read unrelated Outlook appointment contents, send Graph invitation emails, or import a user’s personal calendar into the lab site.
+• Initial linking requires an existing authenticated lab account. Later Microsoft sign-in uses that stored Microsoft identity link; it does not create accounts or match accounts by email alone.
+• Optional Teams support creates one organizer-owned meeting link and includes the same link in the corresponding Outlook copies for connected invitees. Tenant meeting policies remain applicable.
+
+DATA AND CONTROLS
+The application stores lab account names/emails, Microsoft user IDs/profile emails, event titles, times, locations, notes, assignee/invitee IDs, remote calendar/event/meeting identifiers, Teams join URLs, and encrypted refresh tokens. Access tokens are used server-side. Microsoft passwords are never collected by the lab site.
+
+Refresh tokens are encrypted using AES-256-GCM with a server environment key. Client credentials and the encryption key will be stored in the hosting environment, not in the repository. OAuth cookies and lab sessions are HTTP-only and Secure in production. Authorization checks restrict booking modifications to owners/admins. Meetings and their details are visible to signed-in lab members on the shared homepage calendar; they are not private 1:1 records.
+
+Disconnecting clears the stored refresh token and disables future sync and Microsoft sign-in; existing Outlook entries remain. Users can also revoke the app’s grant through Microsoft. Calendar/event metadata currently remains until deleted; a formal retention schedule has not been set. Please advise on required retention, credential rotation, hosting, and data-classification controls before activation. The intended use is routine lab scheduling; no approval for high-risk data is being claimed.
+
+WHAT WE NEED FROM IT
+• Review/approval of the above permissions and hosting/data handling, including any required DRA or other security intake.
+• A Stanford single-tenant app registration, application/client ID and directory/tenant ID, plus the required consent and user/group assignment restrictions. Please restrict access to the Boies Group if appropriate.
+• An approved way to provision the server client credential securely, with its expiration/rotation requirements. Please do not put the secret in an ordinary email or ticket reply.
+• Confirmation that the intended users’ existing Exchange Online and Teams licenses cover these operations, whether additional charges apply, and which Teams policies/licensing are required for the optional meeting feature.
+• Any required faculty/business owner confirmation and the approved process for an initial test with two lab accounts before wider use.
+
+The integration remains disabled pending approval and configuration. We can provide the relevant source code, architecture details, and test results through your preferred review channel. A calendar/sign-in approval first, followed by Teams separately, would also work.
+
+Thanks,
+Gaurav Sharma
+Boies Group

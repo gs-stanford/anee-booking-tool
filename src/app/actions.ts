@@ -1,7 +1,7 @@
 "use server";
 
 import { after } from "next/server";
-import { outlookConfigured, syncConnectedOutlookCalendars, syncOutlookUser } from "@/lib/outlook";
+import { outlookConfigured, syncConnectedOutlookCalendars } from "@/lib/outlook";
 import { saveCalendarBooking } from "@/lib/calendar-booking";
 import { changeTeaPresenter, updateTeaTimeSignup } from "@/lib/tea-time";
 import { randomUUID } from "node:crypto";
@@ -1445,7 +1445,7 @@ export async function cancelLabEventAction(formData: FormData) {
   if (!result.count) redirect(withNotice(target, "error", "The event changed or you do not have permission to cancel it."));
   if (outlookConfigured()) after(syncConnectedOutlookCalendars);
   revalidatePath("/");
-  redirect(withNotice(target, "success", "Cross-impact event canceled."));
+  redirect(withNotice(target, "success", "Event canceled."));
 }
 
 export async function moveCalendarBookingAction(input: import("@/lib/calendar-move").MoveBooking) {
@@ -1465,7 +1465,7 @@ export async function moveCalendarBookingAction(input: import("@/lib/calendar-mo
 export async function syncMyOutlookAction() {
   const user = await requireUser();
   if (user.role === Role.TEMP) redirect("/account");
-  await syncOutlookUser(user.id);
+  await syncConnectedOutlookCalendars();
   revalidatePath("/account");
   redirect("/account");
 }
@@ -1473,7 +1473,7 @@ export async function disconnectOutlookAction() {
   const user = await requireUser();
   await db.outlookConnection.updateMany({where:{userId:user.id},data:{refreshToken:"",lastError:null}});
   revalidatePath("/account");
-  redirect(withNotice("/account","success","Outlook disconnected. Existing Outlook entries remain; no new changes will sync."));
+  redirect(withNotice("/account","success","Outlook disconnected. Microsoft sign-in is disabled; existing Outlook entries remain."));
 }
 export async function moveCalendarBookingFormAction(form:FormData) {
   const input={id:String(form.get("id")),kind:String(form.get("kind")) as "instrument"|"impact",originalStart:String(form.get("originalStart")),originalEnd:String(form.get("originalEnd")),date:String(form.get("date")),time:String(form.get("time")??"00:00")};

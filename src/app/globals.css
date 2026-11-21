@@ -1597,3 +1597,6 @@ details.safety-slot { display: block; padding: 0; }
 .schedule-toolbar { padding: 10px 16px; }
 .schedule-navigation { padding: 0 16px 8px; }
 .schedule-all-day [data-drag-selected="true"] { background: #8c151522; outline: 2px solid #8c1515; outline-offset: -2px; }
+
+.schedule-event-safety-taken { background: #e1f3e7; border-color: #278348; color: #165d30; }
+.schedule-event-meeting { background: #e7effb; border-color: #4176b6; color: #244d80; }

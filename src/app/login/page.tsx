@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { outlookConfigured } from "@/lib/outlook";
 import { loginAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { getCurrentUser } from "@/lib/auth";
@@ -27,6 +29,7 @@ export default async function LoginPage({
       <p className="muted">Use your lab account to reserve instruments and view internal resources.</p>
       {notice ? <Notice type={notice.type} message={notice.message} /> : null}
 
+      {outlookConfigured() && <div className="form-grid"><Link className="button button-secondary" href="/api/outlook/signin" prefetch={false}>Sign in with Microsoft</Link><p className="muted">Link Microsoft in Account using your lab password first.</p></div>}
       <form action={loginAction} className="form-grid">
         <input name="returnTo" type="hidden" value={returnTo} />
         <div className="field">

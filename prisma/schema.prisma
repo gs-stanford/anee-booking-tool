@@ -186,6 +186,10 @@ model TeaTimeSession {
 }
 
 model LabEvent {
+  eventType String @default("event")
+  notes String @default("")
+  teamsEnabled Boolean @default(false)
+  teamsMeeting OutlookMeeting?
   invitees LabEventInvite[]
   id          String @id @default(cuid())
   title       String
@@ -229,6 +233,7 @@ model OutlookConnection {
   lastError String?
   lockUntil DateTime?
   items OutlookSyncItem[]
+  meetings OutlookMeeting[]
 }
 model OutlookSyncItem {
   userId String
@@ -238,4 +243,16 @@ model OutlookSyncItem {
   endAt DateTime
   connection OutlookConnection @relation(fields: [userId], references: [userId], onDelete: Cascade)
   @@id([userId, sourceKey])
+}
+
+model OutlookMeeting {
+  id String @id @default(cuid())
+  eventId String? @unique
+  event LabEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  userId String
+  connection OutlookConnection @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  remoteId String
+  joinUrl String
+  contentHash String
+  @@index([userId])
 }

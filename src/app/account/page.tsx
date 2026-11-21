@@ -95,11 +95,11 @@ export default async function AccountPage({
         <p>Your bookings, safety shifts, Tea Time presentations, and events you’re invited to sync to a separate Boies Lab calendar. Changes flow from this site to Outlook; edit lab reservations here.</p>
         {!outlookConfigured() ? <p className="muted">Direct Outlook connection is awaiting administrator setup.</p> : <>
           {connected ? <>
-            <p>Connected: {connection?.email}</p>
-            {connection?.lastSyncedAt && <p className="muted">Last synced: {connection.lastSyncedAt.toLocaleString("en-US",{timeZone:"America/Los_Angeles"})} Pacific</p>}
+            <p>Connected: {connection?.email}</p><p className="muted">You can now use Sign in with Microsoft on the login page.</p>
+            {connection?.lastSyncedAt && <p className="muted">Last synced: {connection.lastSyncedAt.toLocaleString("en-US",{timeZone:"America/Los_Angeles"})}</p>}
             {connection?.lastError && <p role="alert">{connection.lastError}</p>}
             <div className="inline-actions"><form action={syncMyOutlookAction}><button className="button button-secondary">Sync now</button></form><Link className="button button-ghost" href="/api/outlook/connect" prefetch={false}>Reconnect</Link><form action={disconnectOutlookAction}><button className="button button-ghost">Disconnect</button></form></div>
-            <small>Disconnecting stops updates and keeps existing entries in Outlook.</small>
+            <small>Disconnecting stops updates and Microsoft sign-in. Existing entries stay in Outlook.</small>
           </> : <Link className="button button-primary" href="/api/outlook/connect" prefetch={false}>Connect Outlook</Link>}
         </>}
       </section>

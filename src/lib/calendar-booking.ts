@@ -1,3 +1,4 @@
+import { teamsConfigured } from "@/lib/outlook";
 import { PrismaClient, Role } from "@prisma/client";
 import { z } from "zod";
 import { getLabDateKey, getLabTimeKey, parseLabDateTime, shiftDateString } from "@/lib/lab-time";
@@ -7,7 +8,8 @@ import { isSharedImpact } from "@/lib/home-calendar";
 
 export const calendarBookingSchema = z.object({
   inviteeIds: z.array(z.string().min(1)).max(100).optional(),
-  kind: z.enum(["instrument", "event"]),
+  kind: z.enum(["instrument", "event", "meeting"]),
+  teamsEnabled: z.enum(["on", "off"]).optional(),
   allDay: z.enum(["on", "off"]).optional(),
   instrumentId: z.string().optional(),
   title: z.string().trim().max(120).optional(),
@@ -45,8 +47,15 @@ export async function saveCalendarBooking(client: PrismaClient, user: { id: stri
       if (await tx.reservation.findFirst({ where: { instrumentId: instrument.id, startAt: { lt: endAt }, endAt: { gt: startAt } } })) throw new Error("That instrument is already reserved during this time.");
       await tx.reservation.create({ data: { instrumentId: instrument.id, userId: user.id, startAt, endAt, purpose: input.notes || null, invitees:{create:invitees} } });
     } else {
-      if (!input.title || !input.location || !input.impact) throw new Error("Add an event title, location and impact on the lab.");
-      const data = { title: input.title, location: input.location, impact: input.impact, startAt, endAt };
+      if (!input.title || (input.kind === "event" && (!input.location || !input.impact))) throw new Error("Add a title and, for cross-impact events, a location and impact on the lab.");
+      const existing = edit ? await tx.labEvent.findUnique({where:{id:edit.id}}) : null;
+      if (edit && (!existing || (user.role !== Role.ADMIN && existing.ownerId !== user.id))) throw new Error("You do not have permission to edit this event.");
+      const teamsEnabled = input.teamsEnabled === "on";
+      if (teamsEnabled && !existing?.teamsEnabled) {
+        const connection = await tx.outlookConnection.findUnique({where:{userId:existing?.ownerId ?? user.id}});
+        if (!teamsConfigured() || !connection?.refreshToken) throw new Error("The meeting organizer must connect Outlook and Teams must be enabled before adding a Teams meeting.");
+      }
+      const data = { title: input.title, location: input.location || "", impact: input.kind === "event" ? input.impact! : "", notes:input.notes || "", eventType:input.kind, teamsEnabled, startAt, endAt };
       if (edit) {
         const result = await tx.labEvent.updateMany({ where: { id: edit.id, version: edit.version, ...(user.role === Role.ADMIN ? {} : { ownerId: user.id }) }, data: { ...data, version: { increment: 1 } } });
         if (!result.count) throw new Error("The event changed or you do not have permission to edit it.");

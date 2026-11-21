@@ -2,7 +2,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { db } from "@/lib/db";
 import { personalCalendarEvents, type PersonalEvent } from "@/lib/personal-calendar";
 import { getLabDateKey, getLabTimeKey } from "@/lib/lab-time";
-const scopes="offline_access User.Read Calendars.ReadWrite";
+const scopes=()=>`offline_access User.Read Calendars.ReadWrite${process.env.OUTLOOK_TEAMS_ENABLED==="true"?" OnlineMeetings.ReadWrite":""}`;
+export function teamsConfigured() { return outlookConfigured() && process.env.OUTLOOK_TEAMS_ENABLED === "true"; }
 export function outlookConfigured() { return Boolean(process.env.OUTLOOK_CLIENT_ID && process.env.OUTLOOK_CLIENT_SECRET && process.env.OUTLOOK_TENANT_ID && Buffer.from(process.env.OUTLOOK_TOKEN_ENCRYPTION_KEY??"","base64").length===32 && process.env.APP_URL); }
 function encryptionKey() {
   const key=Buffer.from(process.env.OUTLOOK_TOKEN_ENCRYPTION_KEY??"","base64");
@@ -22,11 +23,11 @@ export function openOutlook(value:string) {
 export function outlookRedirectUri() { return `${process.env.APP_URL!.replace(/\/$/,"")}/api/outlook/callback`; }
 const authority=()=>`https://login.microsoftonline.com/${encodeURIComponent(process.env.OUTLOOK_TENANT_ID!)}/oauth2/v2.0`;
 export function outlookAuthorizeUrl(state:string,verifier:string) {
-  const query=new URLSearchParams({client_id:process.env.OUTLOOK_CLIENT_ID!,response_type:"code",redirect_uri:outlookRedirectUri(),response_mode:"query",scope:scopes,state,code_challenge:createHash("sha256").update(verifier).digest("base64url"),code_challenge_method:"S256",prompt:"select_account"});
+  const query=new URLSearchParams({client_id:process.env.OUTLOOK_CLIENT_ID!,response_type:"code",redirect_uri:outlookRedirectUri(),response_mode:"query",scope:scopes(),state,code_challenge:createHash("sha256").update(verifier).digest("base64url"),code_challenge_method:"S256",prompt:"select_account"});
   return `${authority()}/authorize?${query}`;
 }
 export async function outlookTokens(params:Record<string,string>) {
-  const response=await fetch(`${authority()}/token`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:process.env.OUTLOOK_CLIENT_ID!,client_secret:process.env.OUTLOOK_CLIENT_SECRET!,scope:scopes,...params}),signal:AbortSignal.timeout(15000)});
+  const response=await fetch(`${authority()}/token`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:process.env.OUTLOOK_CLIENT_ID!,client_secret:process.env.OUTLOOK_CLIENT_SECRET!,scope:scopes(),...params}),signal:AbortSignal.timeout(15000)});
   if(!response.ok) throw new Error("Microsoft authorization expired or was denied. Reconnect Outlook.");
   const value=await response.json() as {access_token:string;refresh_token?:string};
   if(!value.access_token) throw new Error("Microsoft did not return an access token.");
@@ -43,7 +44,38 @@ export function outlookEventBody(event:PersonalEvent) {
   const date=(value:Date)=>allDay?{dateTime:`${getLabDateKey(value)}T00:00:00`,timeZone:"Pacific Standard Time"}:{dateTime:value.toISOString().replace(/Z$/,""),timeZone:"UTC"};
   return {subject:event.title,body:{contentType:"text",content:`${event.notes}\n\nManage this booking at ${process.env.APP_URL??"https://lab.amboies.com"}`},location:{displayName:event.location},start:date(event.startAt),end:date(event.endAt),isAllDay:allDay,showAs:"busy"};
 }
-export async function syncOutlookUser(userId:string) {
+export async function syncTeamsMeetings(userId:string,token:string,now=new Date()) {
+  if(!teamsConfigured()) return;
+  const existing=await db.outlookMeeting.findMany({where:{userId},include:{event:true}});
+  for (const old of existing.filter(item=>!item.event || !item.event.teamsEnabled)) {
+    try { await outlookGraph(token,`/me/onlineMeetings/${encodeURIComponent(old.remoteId)}`,"DELETE"); }
+    catch(error) { if(!(error instanceof GraphError && error.status===404)) throw error; }
+    await db.outlookMeeting.deleteMany({where:{id:old.id}});
+  }
+  const meetings=await db.labEvent.findMany({where:{ownerId:userId,teamsEnabled:true,endAt:{gt:now}}});
+  for(const event of meetings) {
+    if(!(await db.outlookConnection.findUnique({where:{userId},select:{refreshToken:true}}))?.refreshToken) return;
+    const body={subject:event.title,startDateTime:event.startAt.toISOString(),endDateTime:event.endAt.toISOString()};
+    const contentHash=createHash("sha256").update(JSON.stringify(body)).digest("hex");
+    const match=existing.find(item=>item.eventId===event.id);
+    if(match?.contentHash===contentHash) continue;
+    if(match) {
+      await outlookGraph(token,`/me/onlineMeetings/${encodeURIComponent(match.remoteId)}`,"PATCH",body);
+      await db.outlookMeeting.update({where:{id:match.id},data:{contentHash}});
+    } else {
+      const result=await outlookGraph(token,"/me/onlineMeetings/createOrGet","POST",{...body,externalId:`boies-lab:${event.id}`});
+      const url=new URL(result.joinWebUrl);
+      if(url.protocol!=="https:" || !result.id) throw new Error("Microsoft returned an invalid Teams meeting.");
+      // A canceled event may disappear while the network request is in flight. Keep a
+      // tombstone so the next sync can delete that remote meeting as well.
+      await db.$transaction(async tx=>{
+        const stillExists=await tx.labEvent.findUnique({where:{id:event.id}});
+        await tx.outlookMeeting.create({data:{eventId:stillExists?.id??null,userId,remoteId:result.id,joinUrl:url.toString(),contentHash}});
+      });
+    }
+  }
+}
+export async function syncOutlookUser(userId:string,meetingsOnly=false) {
   if(!outlookConfigured()) return;
   const now=new Date();
   const lease=new Date(now.getTime()+10*60000);
@@ -54,6 +86,13 @@ export async function syncOutlookUser(userId:string) {
     if (!connection.refreshToken) return;
     const tokens=await outlookTokens({grant_type:"refresh_token",refresh_token:openOutlook(connection.refreshToken)});
     if(tokens.refresh_token) await db.outlookConnection.updateMany({where:{userId,refreshToken:{not:""}},data:{refreshToken:sealOutlook(tokens.refresh_token)}});
+    let teamsError:string|null=null;
+    try { await syncTeamsMeetings(userId,tokens.access_token,now); }
+    catch { teamsError="Teams meeting sync failed. Reconnect Outlook or ask your administrator to check Teams permissions and licensing."; }
+    if(meetingsOnly) {
+      if(teamsError) await db.outlookConnection.updateMany({where:{userId},data:{lastError:teamsError}});
+      return;
+    }
     let calendarId=connection.calendarId;
     if(!calendarId) {
       const calendar=await outlookGraph(tokens.access_token,"/me/calendars","POST",{name:"Boies Lab"});
@@ -86,7 +125,7 @@ export async function syncOutlookUser(userId:string) {
       catch(error) { if(!(error instanceof GraphError && error.status===404)) throw error; }
       await db.outlookSyncItem.delete({where:{userId_sourceKey:{userId,sourceKey:old.sourceKey}}});
     }
-    await db.outlookConnection.update({where:{userId},data:{lastSyncedAt:new Date(),lastError:null}});
+    await db.outlookConnection.update({where:{userId},data:{lastSyncedAt:new Date(),lastError:teamsError}});
   } catch(error) {
     if (error instanceof GraphError && error.status===404) {
       await db.$transaction([db.outlookConnection.updateMany({where:{userId},data:{calendarId:null}}),db.outlookSyncItem.deleteMany({where:{userId}})]);
@@ -99,6 +138,7 @@ export async function syncConnectedOutlookCalendars() {
   if(!outlookConfigured()) return;
   syncQueue=syncQueue.catch(()=>{}).then(async()=>{
     const connections=await db.outlookConnection.findMany({where:{refreshToken:{not:""}},select:{userId:true}});
+    if(teamsConfigured()) for(const connection of connections) await syncOutlookUser(connection.userId,true);
     for(const connection of connections) await syncOutlookUser(connection.userId);
   });
   await syncQueue;
