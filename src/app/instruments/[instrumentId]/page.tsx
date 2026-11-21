@@ -57,7 +57,7 @@ export default async function InstrumentDetailPage({
   const weekParam = getSingleParam(resolvedSearchParams, "week");
   const reservationId = getSingleParam(resolvedSearchParams, "reservationId");
   const parsedWeekOffset = Number(weekParam ?? "0");
-  const weekOffset = Number.isInteger(parsedWeekOffset) ? Math.max(Math.min(parsedWeekOffset, 52), -52) : 0;
+  const weekOffset = Number.isInteger(parsedWeekOffset) ? Math.max(Math.min(parsedWeekOffset, 156), -156) : 0;
   const todayDateKey = getLabDateKey(new Date());
   const weekStartDate = shiftDateString(getStartOfLabWeekDateKey(new Date()), weekOffset * 7);
   const weekEnd = parseLabDateTime(shiftDateString(weekStartDate, 7), "00:00");
