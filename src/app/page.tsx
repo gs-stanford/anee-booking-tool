@@ -1,3 +1,4 @@
+import { getStartOfLabWeekDateKey } from "@/lib/lab-time";
 import { homeScheduleWeek } from "@/lib/home-schedule";
 import { HomeCalendar } from "@/components/home-calendar";
 import { Notice } from "@/components/notice";
@@ -34,9 +35,13 @@ async function loadHomeData() {
 export default async function HomePage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
   const notice = getNotice(query);
-  const parsedWeek = Number(getSingleParam(query, "week") ?? 0);
+  const jumpDate = getSingleParam(query, "date");
+  const jump = jumpDate && /^\d{4}-\d{2}-\d{2}$/.test(jumpDate) ? Date.parse(`${jumpDate}T12:00:00Z`) : NaN;
+  const parsedWeek = Number.isFinite(jump) ? Math.floor((jump - Date.parse(`${getStartOfLabWeekDateKey(new Date())}T12:00:00Z`)) / 604800000) : Number(getSingleParam(query, "week") ?? 0);
   const week = homeScheduleWeek(parsedWeek);
-  const [user, data] = await Promise.all([getCurrentUser(), loadHomeData()]);
+  const user = await getCurrentUser();
+  if (user && user.role !== Role.TEMP) return <>{notice && <Notice type={notice.type} message={notice.message} />}<HomeCalendar user={user} week={week} /></>;
+  const data = await loadHomeData();
   const { instrumentCount, userCount, upcomingReservationCount, instruments } = data;
   const isTempUser = user?.role === Role.TEMP;
   const isTempCalendarHeld = Boolean(isTempUser && user?.calendarAccessOnHold);
@@ -86,9 +91,9 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
         <section className="panel">
           <div className="section-head">
             <div>
-              <h2>{isTempCalendarHeld ? "Calendar access pending" : "Temporary access"}</h2>
+              <h2>{isTempCalendarHeld ? "Calendar access pending" : "Lab resources"}</h2>
               <p className="muted">
-                This temporary account is limited to safety resources
+                Access safety resources
                 {isTempCalendarHeld
                   ? " while calendar access waits for SDS review and glovebox walkthrough approval."
                   : " and approved instrument calendar booking."}

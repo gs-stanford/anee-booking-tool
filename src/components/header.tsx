@@ -92,7 +92,7 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
         {user ? (
           <form action={logoutAction}>
             <button type="submit" className="button button-ghost">
-              Sign out {user.name}
+              Sign out<span className="signout-name"> {user.name}</span>
             </button>
           </form>
         ) : (

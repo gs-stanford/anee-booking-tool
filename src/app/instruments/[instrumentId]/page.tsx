@@ -295,7 +295,6 @@ export default async function InstrumentDetailPage({
               <span>Owner: {instrument.owner?.name ?? "Unassigned"}</span>
               {instrument.owner?.email ? <span>{instrument.owner.email}</span> : null}
               <span>{instrument.manuals.length} manual(s)</span>
-              {!isTempUser && instrument.temporaryAccessEnabled ? <span>Temporary access enabled</span> : null}
             </div>
           </div>
           {canManageInstrument ? (
@@ -311,7 +310,7 @@ export default async function InstrumentDetailPage({
               </form>
             </div>
           ) : (
-            <span className="tag">{isTempUser ? "Temporary calendar access" : "Member booking view"}</span>
+            <span className="tag">{isTempUser ? "Calendar" : "Member booking view"}</span>
           )}
         </div>
 
@@ -429,18 +428,7 @@ export default async function InstrumentDetailPage({
                     <textarea id="instrument-description" name="description" defaultValue={instrument.description} required />
                   </div>
                   <InstrumentSharingFields impactCategory={instrument.impactCategory} crossShared={instrument.crossShared} />
-                  <label className="toggle-row" htmlFor="temporary-access-enabled">
-                    <input
-                      defaultChecked={instrument.temporaryAccessEnabled}
-                      id="temporary-access-enabled"
-                      name="temporaryAccessEnabled"
-                      type="checkbox"
-                    />
-                    <span>
-                      Allow temporary calendar access
-                      <small>Use this only for instruments approved for outside-lab scheduling, such as the glovebox.</small>
-                    </span>
-                  </label>
+                  <input type="hidden" name="temporaryAccessEnabled" value={instrument.temporaryAccessEnabled ? "on" : ""} />
                   <button className="button button-secondary" type="submit">
                     Save details
                   </button>

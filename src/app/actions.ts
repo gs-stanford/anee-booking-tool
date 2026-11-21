@@ -1,8 +1,9 @@
 "use server";
 
-import { updateTeaTimeSignup } from "@/lib/tea-time";
+import { saveCalendarBooking } from "@/lib/calendar-booking";
+import { changeTeaPresenter, updateTeaTimeSignup } from "@/lib/tea-time";
 import { randomUUID } from "node:crypto";
-import { isUpcomingSafetySlot } from "@/lib/home-schedule";
+import { homeScheduleWeek, isUpcomingSafetySlot } from "@/lib/home-schedule";
 import { quarterSignupDates } from "@/lib/academic-quarters";
 import bcrypt from "bcryptjs";
 import { Prisma, InstrumentStatus, RiskAssessmentLevel, Role, SafetyMaterialFlow } from "@prisma/client";
@@ -22,7 +23,7 @@ import {
 import { validateSafetySlot } from "@/lib/home-calendar";
 import { db } from "@/lib/db";
 import { doesInstrumentUnavailabilityOverlap } from "@/lib/instrument-availability";
-import { getLabDateKey, getLabTimeKey, parseLabDateTime } from "@/lib/lab-time";
+import { getStartOfLabWeekDateKey, getLabDateKey, getLabTimeKey, parseLabDateTime } from "@/lib/lab-time";
 import { parseRiskAssessmentHazardsJson } from "@/lib/risk-assessment";
 import { getManualsRoot } from "@/lib/storage";
 
@@ -1382,4 +1383,49 @@ export async function teaTimeSignupAction(formData: FormData) {
   if (!changed) redirect(withNotice(target, "error", "This presentation is no longer available, has started, or belongs to another presenter."));
   revalidatePath("/");
   redirect(withNotice(target, "success", operation === "release" ? "Tea Time signup canceled. The slot is open again." : "You are signed up to present at Tea Time."));
+}
+
+export async function changeTeaPresenterAction(formData: FormData) {
+  const user = await requireUser();
+  const week = Number(formData.get("week") ?? 0);
+  const target = Number.isInteger(week) && Math.abs(week) <= 156 ? `/?week=${week}` : "/";
+  const [swapDate, swapVersion] = String(formData.get("swap") ?? "").split("|");
+  try {
+    await changeTeaPresenter(db, user, { date: String(formData.get("date") ?? ""), version: Number(formData.get("version")), presenterId: String(formData.get("presenterId") ?? ""), swapDate: swapDate || undefined, swapVersion: Number(swapVersion) });
+  } catch (error) {
+    redirect(withNotice(target, "error", error instanceof Error ? error.message : "Could not update presenters."));
+  }
+  revalidatePath("/");
+  redirect(withNotice(target, "success", swapDate ? "Tea Time presenters swapped." : "Tea Time presenter updated."));
+}
+
+export async function saveCalendarBookingAction(formData: FormData) {
+  const user = await requireUser();
+  const week = Number(formData.get("week") ?? 0);
+  const startDate = String(formData.get("startDate") ?? "");
+  const startStamp = /^\d{4}-\d{2}-\d{2}$/.test(startDate) ? Date.parse(`${startDate}T12:00:00Z`) : NaN;
+  const resultWeek = Number.isFinite(startStamp) ? Math.floor((startStamp - Date.parse(`${getStartOfLabWeekDateKey(new Date())}T12:00:00Z`)) / 604800000) : week;
+  const target = `/?week=${homeScheduleWeek(resultWeek)}`;
+  try {
+    const id = String(formData.get("eventId") ?? "");
+    await saveCalendarBooking(db, user, Object.fromEntries(formData.entries()), id ? { id, version: Number(formData.get("version")) } : undefined);
+  } catch (error) {
+    const message = error instanceof z.ZodError ? "Please complete the date and time fields correctly." : error instanceof Error ? error.message : "Unable to save this booking.";
+    redirect(withNotice(target, "error", message));
+  }
+  revalidatePath("/");
+  revalidatePath("/instruments");
+  if (formData.get("instrumentId")) revalidatePath(`/instruments/${String(formData.get("instrumentId"))}`);
+  redirect(withNotice(target, "success", "Calendar booking saved."));
+}
+
+export async function cancelLabEventAction(formData: FormData) {
+  const user = await requireUser();
+  blockTempInternalToolAccess(user, "/");
+  const week = Number(formData.get("week") ?? 0);
+  const target = Number.isInteger(week) && Math.abs(week) <= 156 ? `/?week=${week}` : "/";
+  const result = await db.labEvent.deleteMany({ where: { id: String(formData.get("eventId") ?? ""), version: Number(formData.get("version")), ...(user.role === Role.ADMIN ? {} : { ownerId: user.id }) } });
+  if (!result.count) redirect(withNotice(target, "error", "The event changed or you do not have permission to cancel it."));
+  revalidatePath("/");
+  redirect(withNotice(target, "success", "Cross-impact event canceled."));
 }

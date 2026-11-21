@@ -37,6 +37,7 @@ model User {
   role               Role               @default(MEMBER)
   calendarAccessOnHold Boolean          @default(false)
   ownedInstruments   Instrument[]       @relation("InstrumentOwner")
+  labEvents          LabEvent[]
   teaTimePresentations TeaTimeSession[]
   safetySignups      SafetySignup[]
   reservations       Reservation[]
@@ -170,6 +171,7 @@ model SafetySignup {
 }
 
 model TeaTimeSession {
+  version       Int @default(0)
   date          String  @id
   presenterName String?
   signupEnabled Boolean @default(false)
@@ -177,4 +179,19 @@ model TeaTimeSession {
   presenter     User?   @relation(fields: [presenterId], references: [id], onDelete: SetNull)
 
   @@index([presenterId])
+}
+
+model LabEvent {
+  id          String @id @default(cuid())
+  title       String
+  location    String
+  impact      String
+  startAt     DateTime
+  endAt       DateTime
+  ownerId     String
+  owner       User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  version     Int @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([startAt, endAt])
 }

@@ -1,7 +1,11 @@
+import { ScheduleGrid, type ScheduleEvent } from "@/components/schedule-grid";
+import { CalendarDialog } from "@/components/calendar-dialog";
+import { CalendarBookingForm } from "@/components/calendar-booking-form";
+import { cancelLabEventAction } from "@/app/actions";
 import { TeaTimeSlot } from "@/components/tea-time-slot";
 import { teaTimeIsUpcoming } from "@/lib/tea-time";
 import { isUpcomingSafetySlot, minimumHomeWeek, SAFETY_SCHEDULE_START } from "@/lib/home-schedule";
-import { QUARTERS, quarterForDate } from "@/lib/academic-quarters";
+import { quarterForDate } from "@/lib/academic-quarters";
 import Link from "next/link";
 import { Role } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -18,74 +22,61 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
   const today = getLabDateKey(now);
   const startDate = shiftDateString(getStartOfLabWeekDateKey(now), week * 7);
   const endDate = shiftDateString(startDate, 7);
-  const [signups, instruments, bookings, teaTimeSessions] = await Promise.all([
+  const [signups, instruments, bookings, teaTimeSessions, members, labEvents] = await Promise.all([
     db.safetySignup.findMany({ where: { date: { gte: startDate, lt: endDate } }, include: { user: { select: { name: true } } } }),
     db.instrument.findMany({ orderBy: { name: "asc" } }),
     db.reservation.findMany({ where: { startAt: { lt: parseLabDateTime(endDate, "00:00") }, endAt: { gt: parseLabDateTime(startDate, "00:00") } }, include: { instrument: true, user: { select: { name: true } } }, orderBy: { startAt: "asc" } }),
-    db.teaTimeSession.findMany({ where: { date: { gte: startDate, lt: endDate } }, include: { presenter: { select: { name: true } } } })
+    db.teaTimeSession.findMany({ where: { date: { gte: today } }, orderBy: { date: "asc" }, include: { presenter: { select: { name: true } } } }),
+    db.user.findMany({ where: { role: { not: Role.TEMP } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.labEvent.findMany({ where: { startAt: { lt: parseLabDateTime(endDate, "00:00") }, endAt: { gt: now > parseLabDateTime(startDate, "00:00") ? now : parseLabDateTime(startDate, "00:00") } }, include: { owner: { select: { name: true } } }, orderBy: { startAt: "asc" } })
   ]);
+  const sharedInstrumentOptions = instruments.filter(isSharedImpact).map(({ id, name }) => ({ id, name }));
   const sharedBookings = bookings.filter(booking => isSharedImpact(booking.instrument) && booking.endAt > now);
   const outages = serializeInstrumentUnavailabilityCalendarItems(instruments.filter(isSharedImpact), startDate, endDate);
-  return <section className="panel home-calendar" id="lab-calendar">
-    <div className="section-head">
-      <div><span className="eyebrow">Lab coordination</span><h2>Lab calendar</h2><p className="muted">Safety signups begin Winter 2027 (January 4). Click a slot to sign up or manage it. All times: {getLabTimeZone()}.</p></div>
-      <Link className="button button-secondary" href="/instruments#reservation-calendar">Master instrument calendar ↗</Link>
+  const days = Array.from({ length: 7 }, (_, index) => { const date = shiftDateString(startDate, index); return { date, label: formatDateKeyShortDay(date) }; });
+  const events: ScheduleEvent[] = [];
+  const minute = (value: Date) => { const [hour, min] = getLabTimeKey(value).split(":").map(Number); return hour * 60 + min; };
+  for (const [index, { date }] of days.entries()) {
+    const dayStart = parseLabDateTime(date, "00:00");
+    const dayEnd = parseLabDateTime(shiftDateString(date, 1), "00:00");
+    if (index < 5) for (const time of ["09:00", "18:00"]) {
+      if (!isUpcomingSafetySlot(date, time, now)) continue;
+      const signup = signups.find(item => item.date === date && item.time === time);
+      const quarter = quarterForDate(date);
+      const canRelease = signup && (signup.userId === user.id || user.role === Role.ADMIN);
+      events.push({ id: `safety-${date}-${time}`, date, start: time === "09:00" ? 540 : 1080, end: time === "09:00" ? 570 : 1110, title: "Safety check", person: signup?.user.name ?? "Open slot", kind: "safety", content: <div key={`safety-${date}-${time}`} className="form-grid">
+        <h3>{signup?.user.name ?? "Open slot"}</h3>
+        <p>{quarter ? `${quarter.name} · weekly signups repeat from this date through ${formatDateKeyLong(quarter.end)}, including holidays.` : "Quarter break · reserve this date only."}</p>
+        {(!signup || canRelease) && (signup ? ["release", ...(signup.seriesId ? ["release-series"] : [])] : [...(quarter ? ["claim"] : []), "claim-once"]).map(operation => <form action={safetySignupAction} key={operation}>
+          <input type="hidden" name="date" value={date} /><input type="hidden" name="time" value={time} /><input type="hidden" name="week" value={week} /><input type="hidden" name="operation" value={operation} />
+          <SubmitButton label={operation === "release" ? "Cancel this date" : operation === "release-series" ? "Cancel remaining quarter" : operation === "claim" ? "Reserve weekly" : "This date only"} />
+        </form>)}
+        {signup && !canRelease && <p className="muted">Only the assignee or an admin can cancel.</p>}
+      </div> });
+    }
+    const tea = teaTimeSessions.find(session => session.date === date && teaTimeIsUpcoming(date, now));
+    if (tea) events.push({ id: `tea-${date}`, date, start: 780, end: 840, title: "Tea Time", person: tea.presenter?.name ?? tea.presenterName ?? "Open · Quals practice", kind: "tea", content: <TeaTimeSlot key={`tea-${date}`} session={tea} user={user} week={week} now={now} members={members} sessions={teaTimeSessions} /> });
+    for (const booking of sharedBookings.filter(item => item.startAt < dayEnd && item.endAt > dayStart)) events.push({ id: booking.id, date, start: booking.startAt < dayStart ? 0 : minute(booking.startAt), end: booking.endAt >= dayEnd ? 1440 : minute(booking.endAt), title: booking.instrument.name, person: booking.user.name, kind: "instrument", content: <div key={`${booking.id}-${date}`} className="form-grid"><h3>{booking.user.name}</h3><p>{booking.instrument.location}</p>{booking.purpose && <p className="event-notes">{booking.purpose}</p>}<Link className="button button-secondary" href={`/instruments/${booking.instrumentId}?week=${week}&composeDate=${date}&reservationId=${booking.id}#booking-editor`}>Open instrument reservation</Link></div> });
+    for (const event of labEvents.filter(item => item.startAt < dayEnd && item.endAt > dayStart)) events.push({ id: event.id, date, start: event.startAt < dayStart ? 0 : minute(event.startAt), end: event.endAt >= dayEnd ? 1440 : minute(event.endAt), title: event.title, person: event.owner.name, kind: "impact", content: <div key={`${event.id}-${date}`} className="form-grid"><h3>{event.owner.name}</h3><p>{event.location}</p><p className="event-notes">{event.impact}</p>{(event.ownerId === user.id || user.role === Role.ADMIN) && <>
+      <CalendarBookingForm date={date} week={week} instruments={sharedInstrumentOptions} timeZone={getLabTimeZone()} event={{ id: event.id, version: event.version, title: event.title, location: event.location, impact: event.impact, startDate: getLabDateKey(event.startAt), endDate: getLabDateKey(event.endAt), startTime: getLabTimeKey(event.startAt), endTime: getLabTimeKey(event.endAt) }} />
+      <form action={cancelLabEventAction}><input type="hidden" name="eventId" value={event.id} /><input type="hidden" name="version" value={event.version} /><input type="hidden" name="week" value={week} /><SubmitButton label="Cancel event" /></form>
+    </>}</div> });
+    for (const item of outages.filter(item => item.date === date && date >= today)) events.push({ id: item.id, date, start: 0, end: 1440, title: `${item.instrumentName} unavailable`, person: "", kind: "outage", allDay: true, content: <Link key={item.id} href={`/instruments/${item.instrumentId}`}>View instrument availability</Link> });
+  }
+  return <section className="home-schedule" id="lab-calendar">
+    <div className="schedule-toolbar">
+      <div className="schedule-title"><h1>Calendar</h1><span className="muted">Pacific time</span></div>
+      <CalendarBookingForm date={startDate < today ? today : startDate} week={week} instruments={sharedInstrumentOptions} timeZone={getLabTimeZone()} />
     </div>
-    <details><summary>Quarter dates & signup details</summary>    <p className="muted">Weekly signups repeat from the selected date through the quarter’s last exam day, including holidays. Cancel one date or all remaining dates at any time before the slot starts. During quarter breaks, sign up for individual dates.</p>
-<div className="inline-actions">
-      {QUARTERS.filter(q => q.start >= SAFETY_SCHEDULE_START && q.end >= today).map(q => {
-        const offset = Math.floor((Date.parse(`${q.start}T12:00:00Z`) - Date.parse(`${getStartOfLabWeekDateKey(now)}T12:00:00Z`)) / 604800000);
-        return <Link key={q.name} className="button button-ghost button-small" href={`/?week=${Math.max(minimumWeek, offset)}#lab-calendar`}>{q.name}</Link>;
-      })}
-    </div><p className="muted">Dates follow <a href="https://studentservices.stanford.edu/calendar-events/academic-calendars/future-academic-calendars">Stanford’s academic calendars</a>. Autumn 2027 onward uses the published future calendar and is subject to change.</p></details>
-    <div className="calendar-toolbar"><h3>{formatDateKeyLong(startDate)} – {formatDateKeyLong(shiftDateString(startDate, 6))}</h3><nav aria-label="Calendar weeks" className="inline-actions">
-      {week > minimumWeek && <Link className="button button-ghost button-small" href={`/?week=${week - 1}#lab-calendar`}>← Previous</Link>}
-      <Link className="button button-secondary button-small" href="/#lab-calendar">{minimumWeek > 0 ? "Winter 2027 start" : "This week"}</Link>
-      {week < 156 && <Link className="button button-ghost button-small" href={`/?week=${week + 1}#lab-calendar`}>Next →</Link>}
-    </nav></div>
-    <div className="lab-week-grid">
-      {Array.from({ length: 7 }, (_, index) => {
-        const date = shiftDateString(startDate, index);
-        const dayStart = parseLabDateTime(date, "00:00");
-        const dayEnd = parseLabDateTime(shiftDateString(date, 1), "00:00");
-        const teaTime = teaTimeSessions.find(session => session.date === date && teaTimeIsUpcoming(date, now));
-        const events = sharedBookings.filter(booking => booking.startAt < dayEnd && booking.endAt > dayStart);
-        const dayOutages = outages.filter(item => item.date === date && date >= today);
-        return <article className={`lab-day${date === getLabDateKey(now) ? " is-today" : ""}`} key={date}>
-          <header><span>{formatDateKeyShortDay(date)}</span><strong>{Number(date.slice(-2))}</strong>{date === getLabDateKey(now) && <small>Today</small>}</header>
-          {index < 5 ? ["09:00", "tea", "18:00"].filter(time => time === "tea" || isUpcomingSafetySlot(date, time, now)).map(time => {
-            if (time === "tea") return teaTime ? <TeaTimeSlot key={`${date}-tea`} session={teaTime} user={user} week={week} now={now} /> : null;
-            const signup = signups.find(item => item.date === date && item.time === time);
-            const quarter = quarterForDate(date);
-            const future = parseLabDateTime(date, time) > now;
-            const canRelease = signup && (signup.userId === user.id || user.role === Role.ADMIN);
-            return <details className={`safety-slot${signup ? " is-claimed" : ""}`} name="safety-slot" key={`${date}-${time}`}>
-              <summary className="safety-slot-summary">
-              <span className="event-kind">Safety · {time === "09:00" ? "9 am" : "6 pm"}</span>
-              <strong>{signup?.user.name ?? (future ? "Open slot" : "Unfilled")}</strong>
-              </summary>
-              <div className="safety-slot-options">
-              {quarter && <small>{quarter.name} · through {formatDateKeyLong(quarter.end)}</small>}
-              {signup?.seriesId && <small>Weekly signup</small>}
-              {future && (!signup || canRelease) && <>
-                {(signup ? ["release", ...(signup.seriesId ? ["release-series"] : [])] : [...(quarter ? ["claim"] : []), "claim-once"]).map(operation => <form action={safetySignupAction} key={operation}>
-                  <input type="hidden" name="date" value={date} /><input type="hidden" name="time" value={time} /><input type="hidden" name="week" value={week} /><input type="hidden" name="operation" value={operation} />
-                  <SubmitButton label={operation === "release" ? "Cancel this date" : operation === "release-series" ? "Cancel remaining quarter" : operation === "claim" ? "Reserve weekly" : "This date only"} />
-                </form>)}
-              </>}
-              {!future && <small>This slot has passed.</small>}
-              {future && signup && !canRelease && <small>Reserved by {signup.user.name}. Only the assignee or an admin can cancel.</small>}
-              </div>
-            </details>;
-          }) : <p className="weekend-note">No safety signup slots</p>}
-          {events.map(booking => <Link className="shared-event" href={`/instruments/${booking.instrumentId}?week=${week}&composeDate=${date}&reservationId=${booking.id}#booking-editor`} key={booking.id}>
-            <span className="event-kind">{booking.startAt < dayStart ? "Continues" : getLabTimeKey(booking.startAt)} – {booking.endAt >= dayEnd ? "24:00" : getLabTimeKey(booking.endAt)}</span><strong>{booking.instrument.name}</strong><span>{booking.user.name}</span>
-          </Link>)}
-          {dayOutages.map(item => <Link className="shared-event outage-event" href={`/instruments/${item.instrumentId}`} key={item.id}><span className="event-kind">Unavailable</span><strong>{item.instrumentName}</strong></Link>)}
-          {!events.length && !dayOutages.length && <p className="weekend-note">No shared instrument bookings</p>}
-        </article>;
-      })}
+    <div className="schedule-navigation">
+      <nav aria-label="Calendar weeks">
+        {week > minimumWeek ? <Link className="button button-ghost button-small" aria-label="Previous week" href={`/?week=${week - 1}#lab-calendar`}>‹</Link> : <button className="button button-ghost button-small" aria-label="Previous week" disabled>‹</button>}
+        <Link className="button button-ghost button-small" href="/#lab-calendar">{minimumWeek > 0 ? "Start" : "Today"}</Link>
+        {week < 156 && <Link className="button button-ghost button-small" aria-label="Next week" href={`/?week=${week + 1}#lab-calendar`}>›</Link>}
+      </nav>
+      <CalendarDialog title="Go to date" label={`${formatDateKeyLong(startDate)} – ${formatDateKeyLong(shiftDateString(startDate, 6))}`} triggerClassName="schedule-range"><form action="/" className="form-grid"><label>Go to date<input type="date" name="date" defaultValue={startDate} min={today > SAFETY_SCHEDULE_START ? today : SAFETY_SCHEDULE_START} required /></label><button className="button button-primary">Go</button></form></CalendarDialog>
+      <Link className="schedule-master" href="/instruments#reservation-calendar">All instruments ↗</Link>
     </div>
-    <p className="calendar-footnote">Shared instrument bookings appear below safety slots. Open a booking to view its instrument calendar.</p>
+    <ScheduleGrid days={days} events={events} today={today} />
   </section>;
 }

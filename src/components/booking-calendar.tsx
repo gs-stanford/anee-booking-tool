@@ -181,7 +181,11 @@ export function BookingCalendar({
     }
 
     window.addEventListener("pointerup", handlePointerUp);
-    return () => window.removeEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
   }, []);
 
   const activeReservation =
@@ -309,6 +313,8 @@ export function BookingCalendar({
         </div>
       </div>
 
+      <p className="mobile-calendar-hint">Swipe across to see all days. Tap a time to select it.</p>
+      <div className="calendar-scroll" tabIndex={0} role="region" aria-label="Instrument week calendar, scroll horizontally for more days">
       <div className="calendar-board">
         <div className="calendar-time-column">
           <div className="calendar-corner" />
@@ -354,8 +360,10 @@ export function BookingCalendar({
                       aria-label={`Select ${dayLabel} ${slotToTime(slotIndex)}`}
                       className="calendar-slot-button"
                       key={`${dayLabel}-${slotIndex}`}
-                      onPointerDown={() => handleSlotPointerDown(dayLabel, slotIndex)}
-                      onPointerEnter={() => handleSlotPointerEnter(dayLabel, slotIndex)}
+                      onPointerDown={event => { if (event.pointerType !== "touch") handleSlotPointerDown(dayLabel, slotIndex); }}
+                      onPointerEnter={event => { if (event.pointerType !== "touch") handleSlotPointerEnter(dayLabel, slotIndex); }}
+                      onPointerUp={event => { if (event.pointerType === "touch") handleSlotPointerDown(dayLabel, slotIndex); }}
+                      onClick={event => { if (event.detail === 0) { handleSlotPointerDown(dayLabel, slotIndex); setPointerSelecting(false); selectionAnchor.current = null; } }}
                       type="button"
                     />
                   ))}
@@ -408,6 +416,7 @@ export function BookingCalendar({
         })}
       </div>
 
+      </div>
       <div className="booking-bottom-grid">
         <form
           action={activeReservationEditable ? updateAction : createAction}
