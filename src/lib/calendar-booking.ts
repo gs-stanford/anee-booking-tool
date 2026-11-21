@@ -1,12 +1,13 @@
 import { PrismaClient, Role } from "@prisma/client";
 import { z } from "zod";
-import { getLabDateKey, getLabTimeKey, parseLabDateTime } from "@/lib/lab-time";
+import { getLabDateKey, getLabTimeKey, parseLabDateTime, shiftDateString } from "@/lib/lab-time";
 import { doesInstrumentUnavailabilityOverlap } from "@/lib/instrument-availability";
 import { SAFETY_SCHEDULE_START } from "@/lib/home-schedule";
 import { isSharedImpact } from "@/lib/home-calendar";
 
 export const calendarBookingSchema = z.object({
   kind: z.enum(["instrument", "event"]),
+  allDay: z.enum(["on", "off"]).optional(),
   instrumentId: z.string().optional(),
   title: z.string().trim().max(120).optional(),
   location: z.string().trim().max(160).optional(),
@@ -14,16 +15,23 @@ export const calendarBookingSchema = z.object({
   impact: z.string().trim().max(2000).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional()
 });
 export async function saveCalendarBooking(client: PrismaClient, user: { id: string; role: Role }, raw: unknown, edit?: { id: string; version: number }, now = new Date()) {
   if (user.role === Role.TEMP) throw new Error("Only lab members can create shared calendar events.");
   const input = calendarBookingSchema.parse(raw);
   if (input.startDate < SAFETY_SCHEDULE_START) throw new Error("The homepage schedule begins January 4, 2027.");
-  const startAt = parseLabDateTime(input.startDate, input.startTime);
-  const endAt = parseLabDateTime(input.endDate, input.endTime);
-  if (!Number.isFinite(startAt.getTime()) || !Number.isFinite(endAt.getTime()) || startAt <= now || endAt <= startAt || getLabDateKey(startAt) !== input.startDate || getLabDateKey(endAt) !== input.endDate || getLabTimeKey(startAt) !== input.startTime || getLabTimeKey(endAt) !== input.endTime) throw new Error("Choose valid future start and end times in the lab timezone.");
+  const allDay = input.allDay === "on";
+  const startTime = allDay ? "00:00" : input.startTime;
+  const endTime = allDay ? "00:00" : input.endTime;
+  if (!startTime || !endTime || input.endDate < input.startDate) throw new Error("Choose valid start and end dates and times.");
+  // All-day end dates include the selected day; persist the exclusive midnight boundary.
+  const endDate = allDay ? shiftDateString(input.endDate, 1) : input.endDate;
+  const startAt = parseLabDateTime(input.startDate, startTime);
+  const endAt = parseLabDateTime(endDate, endTime);
+  if (allDay && getLabDateKey(parseLabDateTime(input.endDate, "00:00")) !== input.endDate) throw new Error("Choose a valid end date.");
+  if (!Number.isFinite(startAt.getTime()) || !Number.isFinite(endAt.getTime()) || (allDay ? input.startDate < getLabDateKey(now) : startAt <= now) || endAt <= startAt || getLabDateKey(startAt) !== input.startDate || getLabDateKey(endAt) !== endDate || getLabTimeKey(startAt) !== startTime || getLabTimeKey(endAt) !== endTime) throw new Error("Choose valid future start and end times in the lab timezone.");
   return client.$transaction(async tx => {
     if (input.kind === "instrument") {
       if (edit) throw new Error("Edit instrument reservations from the instrument calendar.");

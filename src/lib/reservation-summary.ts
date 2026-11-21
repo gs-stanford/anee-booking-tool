@@ -69,6 +69,7 @@ export function summarizeReservations(reservations: ReservationSummarySource[]) 
   for (const reservation of reservations) {
     const allDay = isAllDayReservation(reservation);
     const reservationDate = getLabDateKey(reservation.startAt);
+    const reservationEndDate = allDay ? shiftDateString(getLabDateKey(reservation.endAt), -1) : getLabDateKey(reservation.endAt);
     const last = grouped[grouped.length - 1];
 
     if (
@@ -80,7 +81,7 @@ export function summarizeReservations(reservations: ReservationSummarySource[]) 
       last._endDate &&
       reservationDate === shiftDateString(last._endDate, 1)
     ) {
-      last._endDate = reservationDate;
+      last._endDate = reservationEndDate;
       last.label = `${formatDateRange(last._startDate ?? reservationDate, reservationDate)} (All day)`;
       continue;
     }
@@ -91,11 +92,11 @@ export function summarizeReservations(reservations: ReservationSummarySource[]) 
       userName: reservation.user.name,
       purpose: reservation.purpose,
       label: allDay
-        ? `${formatDateKey(reservationDate)} (All day)`
-        : `${formatDateTime(reservation.startAt)} to ${formatTime(reservation.endAt)}`,
+        ? `${reservationDate === reservationEndDate ? formatDateKey(reservationDate) : formatDateRange(reservationDate, reservationEndDate)} (All day)`
+        : `${formatDateTime(reservation.startAt)} to ${getLabDateKey(reservation.endAt) === reservationDate ? formatTime(reservation.endAt) : formatDateTime(reservation.endAt)}`,
       _allDay: allDay,
       _startDate: reservationDate,
-      _endDate: reservationDate,
+      _endDate: reservationEndDate,
       _instrumentId: reservation.instrument.id,
       _userId: reservation.user.id
     };

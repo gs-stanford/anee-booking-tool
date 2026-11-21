@@ -7,6 +7,10 @@ type ReservationItem = {
   id: string;
   userId: string | null;
   date: string;
+  originalDate?: string;
+  originalEndDate?: string;
+  originalStartTime?: string;
+  originalEndTime?: string;
   startSlot: number;
   endSlot: number;
   isAllDay: boolean;
@@ -48,13 +52,13 @@ type SelectionState = {
   endSlot: number;
 };
 
-const START_HOUR = 6;
+const START_HOUR = 0;
 const END_HOUR = 24;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 44;
 const PIXELS_PER_HOUR = SLOT_HEIGHT * 2;
-const DEFAULT_START_SLOT = 4;
-const DEFAULT_END_SLOT = 6;
+const DEFAULT_START_SLOT = 16;
+const DEFAULT_END_SLOT = 18;
 const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
 
 function buildWeekLink(instrumentId: string, weekOffset: number, composeDate: string) {
@@ -156,6 +160,8 @@ export function BookingCalendar({
   cancelAction,
   unavailableMessage = "Instrument unavailable. Please contact the instrument owner."
 }: BookingCalendarProps) {
+  const calendarScroll = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (calendarScroll.current) calendarScroll.current.scrollTop = 8 * PIXELS_PER_HOUR; }, [weekOffset]);
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, index) => START_HOUR + index);
   const initialReservation =
     reservations.find((reservation) => reservation.id === selectedReservationId) ??
@@ -314,7 +320,7 @@ export function BookingCalendar({
       </div>
 
       <p className="mobile-calendar-hint">Swipe across to see all days. Tap a time to select it.</p>
-      <div className="calendar-scroll" tabIndex={0} role="region" aria-label="Instrument week calendar, scroll horizontally for more days">
+      <div ref={calendarScroll} className="calendar-scroll" tabIndex={0} role="region" aria-label="Instrument week calendar, scroll horizontally for more days">
       <div className="calendar-board">
         <div className="calendar-time-column">
           <div className="calendar-corner" />
@@ -425,10 +431,11 @@ export function BookingCalendar({
         >
           <input name="returnTo" type="hidden" value={returnTo} />
           <input name="instrumentId" type="hidden" value={instrumentId} />
-          <input name="date" type="hidden" value={selection.date} />
+          <input name="date" type="hidden" value={activeReservationEditable ? activeReservation?.originalDate ?? selection.date : selection.date} />
+          <input name="endDate" type="hidden" value={activeReservationEditable ? activeReservation?.originalEndDate ?? selection.date : selection.date} />
           <input name="selectedDates" type="hidden" value={selectedAllDayDates.join(",")} />
-          <input name="startTime" type="hidden" value={slotToTime(selection.startSlot)} />
-          <input name="endTime" type="hidden" value={slotToTime(selection.endSlot)} />
+          <input name="startTime" type="hidden" value={activeReservationEditable ? activeReservation?.originalStartTime ?? slotToTime(selection.startSlot) : slotToTime(selection.startSlot)} />
+          <input name="endTime" type="hidden" value={activeReservationEditable ? activeReservation?.originalEndTime ?? slotToTime(selection.endSlot) : slotToTime(selection.endSlot)} />
           {activeReservationEditable && activeReservation ? (
             <input name="reservationId" type="hidden" value={activeReservation.id} />
           ) : null}
@@ -456,7 +463,7 @@ export function BookingCalendar({
               {activeReservationEditable ? "Editing existing booking" : selectionSource === "reservation" ? "Viewing booking" : "Selected block"}
             </span>
             <h4>
-              {selectedAllDayDates.length > 0
+              {activeReservation ? activeReservation.timeRangeLabel : selectedAllDayDates.length > 0
                 ? allDaySelectionLabel
                 : `${formatSelectionDateTime(selection.date, selection.startSlot)} to ${formatTimeLabel(slotToTime(selection.endSlot))}`}
             </h4>
@@ -511,7 +518,7 @@ export function BookingCalendar({
                     </span>
                   </div>
                   <div className="meta">
-                    <span>{reservation.isAllDay ? `${formatDateKey(reservation.date)} (All day)` : reservation.timeRangeLabel}</span>
+                    <span>{reservation.timeRangeLabel}</span>
                   </div>
                   {reservation.purpose ? <p>{reservation.purpose}</p> : null}
                 </button>

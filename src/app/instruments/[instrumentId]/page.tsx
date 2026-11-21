@@ -1,3 +1,4 @@
+import { isAllDayReservation } from "@/lib/reservation-calendar";
 import { InstrumentSharingFields } from "@/components/instrument-sharing-fields";
 import Link from "next/link";
 import { InstrumentStatus, Role } from "@prisma/client";
@@ -186,7 +187,7 @@ export default async function InstrumentDetailPage({
       userId: null,
       date: day.date,
       startSlot: 0,
-      endSlot: 36,
+      endSlot: 48,
       isAllDay: true,
       startTimeLabel: "All day",
       endTimeLabel: "All day",
@@ -197,21 +198,22 @@ export default async function InstrumentDetailPage({
         name: "Unavailable"
       }
     }));
-  const serializeReservation = (reservation: (typeof instrument.reservations)[number]) => {
-    const startTime = getLabTimeKey(reservation.startAt);
-    const endDateKey = getLabDateKey(reservation.endAt);
-    const endTimeBase = getLabTimeKey(reservation.endAt);
-    const endTime = endDateKey !== getLabDateKey(reservation.startAt) && endTimeBase === "00:00" ? "24:00" : endTimeBase;
-    const startSlot = timeKeyToSlot(startTime);
-    const endSlot = timeKeyToSlot(endTime);
-
+  const serializeReservation = (reservation: (typeof instrument.reservations)[number], date = getLabDateKey(reservation.startAt)) => {
+    const dayStart = parseLabDateTime(date, "00:00");
+    const dayEnd = parseLabDateTime(shiftDateString(date, 1), "00:00");
+    const startSlot = reservation.startAt < dayStart ? 0 : timeKeyToSlot(getLabTimeKey(reservation.startAt), 0);
+    const endSlot = reservation.endAt >= dayEnd ? 48 : timeKeyToSlot(getLabTimeKey(reservation.endAt), 0);
     return {
       id: reservation.id,
       userId: reservation.userId,
-      date: getLabDateKey(reservation.startAt),
+      date,
+      originalDate: getLabDateKey(reservation.startAt),
+      originalEndDate: getLabDateKey(reservation.endAt),
+      originalStartTime: getLabTimeKey(reservation.startAt),
+      originalEndTime: getLabTimeKey(reservation.endAt),
       startSlot,
       endSlot,
-      isAllDay: startSlot === 0 && endSlot === 36,
+      isAllDay: isAllDayReservation(reservation),
       timeRangeLabel: `${formatDateTime(reservation.startAt)} to ${formatDateTime(reservation.endAt)}`,
       startTimeLabel: formatTime(reservation.startAt),
       endTimeLabel: formatTime(reservation.endAt),
@@ -383,10 +385,10 @@ export default async function InstrumentDetailPage({
             instrumentId={instrument.id}
             isAdmin={user.role === Role.ADMIN}
             key={`${weekOffset}-${composeDate}-${reservationId ?? "new"}`}
-            reservations={[...unavailableWeekReservations, ...instrument.reservations.map(serializeReservation)]}
+            reservations={[...unavailableWeekReservations, ...instrument.reservations.flatMap(reservation => weekDays.filter(day => reservation.startAt < parseLabDateTime(shiftDateString(day.date, 1), "00:00") && reservation.endAt > parseLabDateTime(day.date, "00:00")).map(day => serializeReservation(reservation, day.date)))]}
             selectedReservationId={reservationId}
             unavailableMessage={bookingDisabledMessage}
-            upcomingReservations={upcomingReservations.map(serializeReservation)}
+            upcomingReservations={upcomingReservations.map(reservation => serializeReservation(reservation))}
             updateAction={updateReservationAction}
             weekOffset={weekOffset}
             weekDays={weekDays}

@@ -1560,3 +1560,26 @@ details.safety-slot { display: block; padding: 0; }
   .header-nav > form .button { padding: 6px 0; background: none; border: none; font-size: 13px; }
 }
 .schedule-event { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }
+
+/* Keep day headings and all-day events above the independently scrolling hours. */
+.schedule-dates .schedule-heading { position: static; height: 64px; }
+.schedule-all-day { border-bottom: 1px solid var(--line-strong); }
+.schedule-all-day .schedule-day { position: relative; min-height: 30px; padding: 2px 2px 2px; display: flex; flex-direction: column; gap: 2px; }
+.schedule-all-day-label { color: var(--muted); font-size: 11px; padding: 6px; }
+.schedule-all-day-add { position: absolute; inset: 0; border: 0; background: transparent; color: transparent; font: inherit; cursor: pointer; }
+.schedule-all-day-add:hover, .schedule-all-day-add:focus-visible { background: #f5f3f1; color: #8c1515; }
+.schedule-banner { position: relative; z-index: 1; font: inherit; font-size: 11px; line-height: 14px; text-align: left; border: 0; border-left: 3px solid #798b96; border-radius: 3px; padding: 3px 5px; cursor: pointer; }
+.schedule-banner strong, .schedule-banner span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-empty-slot { position: absolute; left: 0; width: 100%; height: 36px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.schedule-empty-slot:hover:not(:disabled) { background: rgba(140,21,21,.045); }
+.schedule-empty-slot:focus-visible { outline: 2px solid #8c1515; outline-offset: -2px; }
+.schedule-empty-slot:disabled, .schedule-all-day-add:disabled { cursor: default; }
+.schedule-event { z-index: 1; }
+.calendar-all-day-toggle { display: flex; align-items: center; gap: 10px; }
+.calendar-all-day-toggle input { width: 18px; min-height: 18px; height: 18px; margin: 0; }
+@media (max-width: 700px) {
+  .schedule-dates { display: none; }
+  .schedule-all-day .schedule-day:not(.is-selected) { display: none; }
+}
+.calendar-scroll { max-height: 72vh; overflow: auto; }
+.dialog-body .calendar-all-day-toggle { display: flex; }

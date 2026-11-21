@@ -196,6 +196,7 @@ const maintenanceSchema = z.object({
 const reservationSchema = z.object({
   instrumentId: z.string().min(1),
   date: z.string().min(1),
+  endDate: z.string().min(1).optional(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
   purpose: z.string().trim().optional()
@@ -971,6 +972,7 @@ export async function createReservationAction(formData: FormData) {
   const parsed = reservationSchema.safeParse({
     instrumentId: formData.get("instrumentId"),
     date: formData.get("date"),
+    endDate: formData.get("endDate") || undefined,
     startTime: formData.get("startTime"),
     endTime: formData.get("endTime"),
     purpose: formData.get("purpose") || undefined
@@ -1004,14 +1006,14 @@ export async function createReservationAction(formData: FormData) {
     selectedDates.length > 0
       ? selectedDates.map((date) => ({
           date,
-          startAt: parseLabDateTime(date, "06:00"),
+          startAt: parseLabDateTime(date, "00:00"),
           endAt: parseLabDateTime(date, "24:00")
         }))
       : [
           {
             date: parsed.data.date,
             startAt: parseLabDateTime(parsed.data.date, parsed.data.startTime),
-            endAt: parseLabDateTime(parsed.data.date, parsed.data.endTime)
+            endAt: parseLabDateTime(parsed.data.endDate ?? parsed.data.date, parsed.data.endTime)
           }
         ];
 
@@ -1089,6 +1091,7 @@ export async function updateReservationAction(formData: FormData) {
     reservationId: formData.get("reservationId"),
     instrumentId: formData.get("instrumentId"),
     date: formData.get("date"),
+    endDate: formData.get("endDate") || undefined,
     startTime: formData.get("startTime"),
     endTime: formData.get("endTime"),
     purpose: formData.get("purpose") || undefined
@@ -1125,7 +1128,7 @@ export async function updateReservationAction(formData: FormData) {
   blockTempUnapprovedInstrumentAccess(user, instrument, returnTo);
 
   const startAt = parseLabDateTime(parsed.data.date, parsed.data.startTime);
-  const endAt = parseLabDateTime(parsed.data.date, parsed.data.endTime);
+  const endAt = parseLabDateTime(parsed.data.endDate ?? parsed.data.date, parsed.data.endTime);
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || startAt >= endAt) {
     redirect(withNotice(returnTo, "error", "Choose a valid time range."));

@@ -41,7 +41,7 @@ export function getLabTimeKey(date: Date) {
 
 export function getStartOfLabWeekDateKey(date: Date) {
   const isoWeekday = Number(formatInTimeZone(date, getLabTimeZone(), "i"));
-  return shiftDateString(getLabDateKey(date), -(isoWeekday - 1));
+  return shiftDateString(getLabDateKey(date), -(isoWeekday % 7));
 }
 
 export function timeKeyToSlot(time: string, startHour = 6, slotMinutes = 30) {

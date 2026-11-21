@@ -22,7 +22,7 @@ type SharedReservationsOverviewProps = {
 };
 
 type OverviewView = "list" | "calendar";
-const MONTH_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTH_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DISTINCT_INSTRUMENT_COLORS = [
   { background: "#eef6c8", border: "#b6cb2d", text: "#51620f" },
   { background: "#dfeaff", border: "#6f97f7", text: "#244b9d" },
@@ -74,7 +74,7 @@ function formatMonthHeading(date: Date) {
 
 function buildMonthGrid(monthStart: Date) {
   const month = monthStart.getUTCMonth();
-  const firstWeekday = (monthStart.getUTCDay() + 6) % 7;
+  const firstWeekday = monthStart.getUTCDay();
   const gridStart = shiftDate(monthStart, -firstWeekday);
 
   return Array.from({ length: 42 }, (_, index) => {

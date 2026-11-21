@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { PrismaClient, Role } from "@prisma/client";
 import { changeTeaPresenter, resolvePresenterId } from "../src/lib/tea-time";
+import { serializeReservationCalendarItems, isAllDayReservation } from "../src/lib/reservation-calendar";
+import { getLabDateKey, getLabTimeKey } from "../src/lib/lab-time";
 import { saveCalendarBooking } from "../src/lib/calendar-booking";
 async function main() {
   if (process.env.DATABASE_URL !== "file:/private/tmp/lab-calendar-test.db") throw new Error("Use isolated DB");
@@ -40,7 +42,26 @@ async function main() {
     await assert.rejects(saveCalendarBooking(db, { ...user, role: Role.TEMP }, event, undefined, now));
     await assert.rejects(saveCalendarBooking(db, user, { ...event, startDate: "2027-02-30" }, undefined, now));
     await assert.rejects(saveCalendarBooking(db, user, { ...event, endTime: "09:00" }, undefined, now));
-    console.log("PASS: presenter ownership/reassignment/swaps, ambiguous names, stale edits, concurrent booking, unavailability, event permissions and time validation.");
+    await db.instrument.update({ where: { id: instrument.id }, data: { status: "AVAILABLE" } });
+    await saveCalendarBooking(db, user, { ...booking, startDate: "2027-01-09", endDate: "2027-01-10", startTime: "23:30", endTime: "02:00" }, undefined, now);
+    const overnight = await db.reservation.findFirstOrThrow({ where: { instrumentId: instrument.id }, orderBy: { startAt: "desc" }, include: { instrument: true, user: true } });
+    assert.deepEqual(serializeReservationCalendarItems([overnight]).map(item => item.date), ["2027-01-09", "2027-01-10"]);
+    await assert.rejects(saveCalendarBooking(db, user, { ...booking, startDate: "2027-01-10", endDate: "2027-01-10", startTime: "01:00", endTime: "03:00" }, undefined, now));
+    for (const [date, expectedHours] of [["2027-03-14", 23], ["2027-11-07", 25]] as const) {
+      await saveCalendarBooking(db, user, { ...booking, allDay: "on", startDate: date, endDate: date, startTime: undefined, endTime: undefined }, undefined, now);
+      const fullDay = await db.reservation.findFirstOrThrow({ where: { instrumentId: instrument.id, startAt: { gte: new Date(`${date}T00:00:00Z`) } }, orderBy: { startAt: "asc" }, include: { instrument: true, user: true } });
+      assert.equal((fullDay.endAt.getTime() - fullDay.startAt.getTime()) / 3600000, expectedHours);
+      assert.equal(isAllDayReservation(fullDay), true);
+      assert.equal(getLabTimeKey(fullDay.startAt), "00:00");
+      assert.deepEqual(serializeReservationCalendarItems([fullDay]).map(item => item.date), [date]);
+      await assert.rejects(saveCalendarBooking(db, user, { ...booking, startDate: date, endDate: date, startTime: "01:00", endTime: "01:30" }, undefined, now));
+    }
+    await saveCalendarBooking(db, user, { ...event, allDay: "on", startDate: "2027-02-05", endDate: "2027-02-07" }, { id: saved.id, version: saved.version + 1 }, now);
+    const multiDay = await db.labEvent.findUniqueOrThrow({ where: { id: saved.id } });
+    assert.equal(getLabDateKey(multiDay.endAt), "2027-02-08");
+    assert.equal(isAllDayReservation(multiDay), true);
+    await assert.rejects(saveCalendarBooking(db, user, { ...event, allDay: "on", startDate: "2027-02-28", endDate: "2027-02-30" }, undefined, now));
+    console.log("PASS: presenter ownership/reassignment/swaps, ambiguous names, stale edits, concurrent booking, unavailability, event permissions and time validation, overnight conflicts, multi-day events, midnight boundaries and 23/25-hour all-day bookings.");
   } finally {
     for (const session of original) await db.teaTimeSession.update({ where: { date: session.date }, data: session });
     await db.labEvent.deleteMany({ where: { title: { in: ["Test cross-impact", "Updated cross-impact"] }, ownerId: user.id } });

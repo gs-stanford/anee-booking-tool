@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { homeScheduleWeek, minimumHomeWeek, isUpcomingSafetySlot } from "../src/lib/home-schedule";
 import { getStartOfLabWeekDateKey, shiftDateString } from "../src/lib/lab-time";
 const beforeLaunch = new Date("2026-11-20T22:00:00Z");
-assert.equal(shiftDateString(getStartOfLabWeekDateKey(beforeLaunch), homeScheduleWeek(0, beforeLaunch) * 7), "2027-01-04");
+assert.equal(shiftDateString(getStartOfLabWeekDateKey(beforeLaunch), homeScheduleWeek(0, beforeLaunch) * 7), "2027-01-03");
 assert.equal(homeScheduleWeek(-100, beforeLaunch), minimumHomeWeek(beforeLaunch));
 assert.equal(homeScheduleWeek(NaN, beforeLaunch), minimumHomeWeek(beforeLaunch));
 assert.equal(isUpcomingSafetySlot("2026-12-07", "09:00", beforeLaunch), false);
@@ -15,3 +15,7 @@ assert.equal(isUpcomingSafetySlot("2027-01-06", "18:00", duringQuarter), true);
 assert.equal(isUpcomingSafetySlot("2027-01-09", "09:00", duringQuarter), false);
 assert.equal(isUpcomingSafetySlot("2027-01-06", "18:00", new Date("2027-01-07T02:00:00Z")), false);
 console.log("PASS: Winter 2027 launch, navigation bounds, elapsed slots, Pacific times and weekends.");
+
+assert.equal(getStartOfLabWeekDateKey(new Date("2027-01-10T20:00:00Z")), "2027-01-10");
+assert.equal(getStartOfLabWeekDateKey(new Date("2027-01-09T20:00:00Z")), "2027-01-03");
+assert.equal(isUpcomingSafetySlot("2027-01-08", "09:00", beforeLaunch), true);

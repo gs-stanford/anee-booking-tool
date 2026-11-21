@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { safetySignupAction } from "@/app/actions";
 import { isSharedImpact } from "@/lib/home-calendar";
 import { formatDateKeyLong, formatDateKeyShortDay, getLabDateKey, getLabTimeKey, getLabTimeZone, getStartOfLabWeekDateKey, parseLabDateTime, shiftDateString } from "@/lib/lab-time";
-import { serializeInstrumentUnavailabilityCalendarItems } from "@/lib/reservation-calendar";
+import { serializeInstrumentUnavailabilityCalendarItems, isAllDayReservation } from "@/lib/reservation-calendar";
 import { SubmitButton } from "@/components/submit-button";
 
 type CalendarUser = { id: string; role: Role };
@@ -33,13 +33,14 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
   const sharedInstrumentOptions = instruments.filter(isSharedImpact).map(({ id, name }) => ({ id, name }));
   const sharedBookings = bookings.filter(booking => isSharedImpact(booking.instrument) && booking.endAt > now);
   const outages = serializeInstrumentUnavailabilityCalendarItems(instruments.filter(isSharedImpact), startDate, endDate);
+  const minimumDate = today > SAFETY_SCHEDULE_START ? today : SAFETY_SCHEDULE_START;
   const days = Array.from({ length: 7 }, (_, index) => { const date = shiftDateString(startDate, index); return { date, label: formatDateKeyShortDay(date) }; });
   const events: ScheduleEvent[] = [];
   const minute = (value: Date) => { const [hour, min] = getLabTimeKey(value).split(":").map(Number); return hour * 60 + min; };
   for (const [index, { date }] of days.entries()) {
     const dayStart = parseLabDateTime(date, "00:00");
     const dayEnd = parseLabDateTime(shiftDateString(date, 1), "00:00");
-    if (index < 5) for (const time of ["09:00", "18:00"]) {
+    if (index > 0 && index < 6) for (const time of ["09:00", "18:00"]) {
       if (!isUpcomingSafetySlot(date, time, now)) continue;
       const signup = signups.find(item => item.date === date && item.time === time);
       const quarter = quarterForDate(date);
@@ -56,8 +57,8 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
     }
     const tea = teaTimeSessions.find(session => session.date === date && teaTimeIsUpcoming(date, now));
     if (tea) events.push({ id: `tea-${date}`, date, start: 780, end: 840, title: "Tea Time", person: tea.presenter?.name ?? tea.presenterName ?? "Open · Quals practice", kind: "tea", content: <TeaTimeSlot key={`tea-${date}`} session={tea} user={user} week={week} now={now} members={members} sessions={teaTimeSessions} /> });
-    for (const booking of sharedBookings.filter(item => item.startAt < dayEnd && item.endAt > dayStart)) events.push({ id: booking.id, date, start: booking.startAt < dayStart ? 0 : minute(booking.startAt), end: booking.endAt >= dayEnd ? 1440 : minute(booking.endAt), title: booking.instrument.name, person: booking.user.name, kind: "instrument", content: <div key={`${booking.id}-${date}`} className="form-grid"><h3>{booking.user.name}</h3><p>{booking.instrument.location}</p>{booking.purpose && <p className="event-notes">{booking.purpose}</p>}<Link className="button button-secondary" href={`/instruments/${booking.instrumentId}?week=${week}&composeDate=${date}&reservationId=${booking.id}#booking-editor`}>Open instrument reservation</Link></div> });
-    for (const event of labEvents.filter(item => item.startAt < dayEnd && item.endAt > dayStart)) events.push({ id: event.id, date, start: event.startAt < dayStart ? 0 : minute(event.startAt), end: event.endAt >= dayEnd ? 1440 : minute(event.endAt), title: event.title, person: event.owner.name, kind: "impact", content: <div key={`${event.id}-${date}`} className="form-grid"><h3>{event.owner.name}</h3><p>{event.location}</p><p className="event-notes">{event.impact}</p>{(event.ownerId === user.id || user.role === Role.ADMIN) && <>
+    for (const booking of sharedBookings.filter(item => item.startAt < dayEnd && item.endAt > dayStart)) events.push({ id: booking.id, date, start: booking.startAt < dayStart ? 0 : minute(booking.startAt), end: booking.endAt >= dayEnd ? 1440 : minute(booking.endAt), allDay: isAllDayReservation(booking), title: booking.instrument.name, person: booking.user.name, kind: "instrument", content: <div key={`${booking.id}-${date}`} className="form-grid"><h3>{booking.user.name}</h3><p>{formatDateKeyLong(getLabDateKey(booking.startAt))} {getLabTimeKey(booking.startAt)} – {formatDateKeyLong(getLabDateKey(booking.endAt))} {getLabTimeKey(booking.endAt)}</p><p>{booking.instrument.location}</p>{booking.purpose && <p className="event-notes">{booking.purpose}</p>}<Link className="button button-secondary" href={`/instruments/${booking.instrumentId}?week=${week}&composeDate=${date}&reservationId=${booking.id}#booking-editor`}>Open instrument reservation</Link></div> });
+    for (const event of labEvents.filter(item => item.startAt < dayEnd && item.endAt > dayStart)) events.push({ id: event.id, date, start: event.startAt < dayStart ? 0 : minute(event.startAt), end: event.endAt >= dayEnd ? 1440 : minute(event.endAt), allDay: getLabTimeKey(event.startAt) === "00:00" && getLabTimeKey(event.endAt) === "00:00", title: event.title, person: event.owner.name, kind: "impact", content: <div key={`${event.id}-${date}`} className="form-grid"><h3>{event.owner.name}</h3><p>{formatDateKeyLong(getLabDateKey(event.startAt))} {getLabTimeKey(event.startAt)} – {formatDateKeyLong(getLabDateKey(event.endAt))} {getLabTimeKey(event.endAt)}</p><p>{event.location}</p><p className="event-notes">{event.impact}</p>{(event.ownerId === user.id || user.role === Role.ADMIN) && <>
       <CalendarBookingForm date={date} week={week} instruments={sharedInstrumentOptions} timeZone={getLabTimeZone()} event={{ id: event.id, version: event.version, title: event.title, location: event.location, impact: event.impact, startDate: getLabDateKey(event.startAt), endDate: getLabDateKey(event.endAt), startTime: getLabTimeKey(event.startAt), endTime: getLabTimeKey(event.endAt) }} />
       <form action={cancelLabEventAction}><input type="hidden" name="eventId" value={event.id} /><input type="hidden" name="version" value={event.version} /><input type="hidden" name="week" value={week} /><SubmitButton label="Cancel event" /></form>
     </>}</div> });
@@ -66,7 +67,7 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
   return <section className="home-schedule" id="lab-calendar">
     <div className="schedule-toolbar">
       <div className="schedule-title"><h1>Calendar</h1><span className="muted">Pacific time</span></div>
-      <CalendarBookingForm date={startDate < today ? today : startDate} week={week} instruments={sharedInstrumentOptions} timeZone={getLabTimeZone()} />
+      <CalendarBookingForm date={startDate < minimumDate ? minimumDate : startDate} week={week} instruments={sharedInstrumentOptions} timeZone={getLabTimeZone()} />
     </div>
     <div className="schedule-navigation">
       <nav aria-label="Calendar weeks">
@@ -77,6 +78,6 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
       <CalendarDialog title="Go to date" label={`${formatDateKeyLong(startDate)} – ${formatDateKeyLong(shiftDateString(startDate, 6))}`} triggerClassName="schedule-range"><form action="/" className="form-grid"><label>Go to date<input type="date" name="date" defaultValue={startDate} min={today > SAFETY_SCHEDULE_START ? today : SAFETY_SCHEDULE_START} required /></label><button className="button button-primary">Go</button></form></CalendarDialog>
       <Link className="schedule-master" href="/instruments#reservation-calendar">All instruments ↗</Link>
     </div>
-    <ScheduleGrid days={days} events={events} today={today} />
+    <ScheduleGrid days={days} events={events} today={today} minimumDate={minimumDate} booking={{ week, instruments: sharedInstrumentOptions, timeZone: getLabTimeZone() }} />
   </section>;
 }

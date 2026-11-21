@@ -34,7 +34,8 @@ export type InstrumentUnavailabilityCalendarSource = {
   unavailableUntil: Date | null;
 };
 
-export function isAllDayReservation(reservation: ReservationCalendarSource) {
+export function isAllDayReservation(reservation: { startAt: Date; endAt: Date }) {
+  if (getLabTimeKey(reservation.startAt) === "00:00" && getLabTimeKey(reservation.endAt) === "00:00" && reservation.endAt > reservation.startAt) return true;
   return (
     getLabTimeKey(reservation.startAt) === "06:00" &&
     getLabTimeKey(reservation.endAt) === "00:00" &&
@@ -45,16 +46,16 @@ export function isAllDayReservation(reservation: ReservationCalendarSource) {
 export function serializeReservationCalendarItems(
   reservations: ReservationCalendarSource[]
 ): ReservationCalendarItem[] {
-  return reservations.map((reservation) => ({
-    id: reservation.id,
-    instrumentId: reservation.instrument.id,
-    instrumentName: reservation.instrument.name,
-    userId: reservation.user.id,
-    userName: reservation.user.name,
-    date: getLabDateKey(reservation.startAt),
-    isAllDay: isAllDayReservation(reservation),
-    kind: "reservation"
-  }));
+  return reservations.flatMap((reservation) => {
+    const items: ReservationCalendarItem[] = [];
+    const lastDate = getLabTimeKey(reservation.endAt) === "00:00" ? shiftDateString(getLabDateKey(reservation.endAt), -1) : getLabDateKey(reservation.endAt);
+    for (let date = getLabDateKey(reservation.startAt); date <= lastDate; date = shiftDateString(date, 1)) items.push({
+      id: reservation.id, instrumentId: reservation.instrument.id, instrumentName: reservation.instrument.name,
+      userId: reservation.user.id, userName: reservation.user.name, date,
+      isAllDay: isAllDayReservation(reservation), kind: "reservation"
+    });
+    return items;
+  });
 }
 
 export function serializeInstrumentUnavailabilityCalendarItems(
