@@ -194,3 +194,9 @@ The instrument booking form no longer displays the Purpose field, and instrument
 
 Regression check (after migrations on the isolated test database):
 `DATABASE_URL=file:/private/tmp/lab-calendar-test.db node --import tsx scripts/test-quarter-signups.ts`
+
+## Homepage schedule launch
+
+Safety signups launch on January 4, 2027 (Winter quarter). Before launch, the homepage defaults to that week; afterwards it defaults to the current lab week. Earlier navigation is clamped, elapsed safety slots and completed shared bookings are hidden, and the server rejects pre-launch safety signups. Historical records remain stored. The redundant bookings summary and design-credit footer have been removed from the homepage.
+
+Run the schedule boundary checks with `node --import tsx scripts/test-home-schedule.ts`.

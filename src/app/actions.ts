@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { isUpcomingSafetySlot } from "@/lib/home-schedule";
 import { quarterSignupDates } from "@/lib/academic-quarters";
 import bcrypt from "bcryptjs";
 import { Prisma, InstrumentStatus, RiskAssessmentLevel, Role, SafetyMaterialFlow } from "@prisma/client";
@@ -1329,8 +1330,8 @@ export async function safetySignupAction(formData: FormData) {
   const week = Number(formData.get("week") ?? 0);
   const target = Number.isInteger(week) && Math.abs(week) <= 156 ? `/?week=${week}` : "/";
   const slot = validateSafetySlot(date, time);
-  if (!slot || slot <= new Date()) {
-    redirect(withNotice(target, "error", "Choose a future weekday safety slot at 9 am or 6 pm."));
+  if (!slot || !isUpcomingSafetySlot(date, time)) {
+    redirect(withNotice(target, "error", "Choose a future weekday safety slot at 9 am or 6 pm, starting January 4, 2027."));
   }
   const operation = formData.get("operation");
   if (operation === "release-series") {

@@ -1,4 +1,4 @@
-import { isSharedImpact } from "@/lib/home-calendar";
+import { homeScheduleWeek } from "@/lib/home-schedule";
 import { HomeCalendar } from "@/components/home-calendar";
 import { Notice } from "@/components/notice";
 import { getNotice, getSingleParam } from "@/lib/utils";
@@ -6,100 +6,27 @@ import Image from "next/image";
 import Link from "next/link";
 import { Role } from "@prisma/client";
 
-import { SharedReservationsOverview } from "@/components/shared-reservations-overview";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import {
-  serializeInstrumentUnavailabilityCalendarItems,
-  serializeReservationCalendarItems
-} from "@/lib/reservation-calendar";
-import { summarizeReservations } from "@/lib/reservation-summary";
-import { getLabDateKey } from "@/lib/lab-time";
 
 export const dynamic = "force-dynamic";
 
 async function loadHomeData() {
   try {
-    const reservationWindowStart = new Date();
-    reservationWindowStart.setMonth(reservationWindowStart.getMonth() - 6);
-    reservationWindowStart.setDate(1);
-    reservationWindowStart.setHours(0, 0, 0, 0);
-    const reservationWindowEnd = new Date(reservationWindowStart);
-    reservationWindowEnd.setMonth(reservationWindowEnd.getMonth() + 18);
-
-    const [
-      instrumentCount,
-      userCount,
-      upcomingReservationCount,
-      reservationCalendarReservations,
-      instruments,
-      allInstrumentsForCalendar
-    ] =
-      await Promise.all([
+    const [instrumentCount, userCount, upcomingReservationCount, instruments] = await Promise.all([
       db.instrument.count(),
       db.user.count(),
-      db.reservation.count({
-        where: {
-          endAt: {
-            gte: new Date()
-          }
-        }
-      }),
-      db.reservation.findMany({
-        where: {
-          endAt: {
-            gte: reservationWindowStart
-          },
-          startAt: {
-            lt: reservationWindowEnd
-          }
-        },
-        orderBy: {
-          startAt: "asc"
-        },
-        include: {
-          instrument: true,
-          user: true
-        }
-      }),
-      db.instrument.findMany({
-        orderBy: {
-          createdAt: "desc"
-        },
-        take: 4
-      }),
-      db.instrument.findMany({
-        orderBy: {
-          name: "asc"
-        }
-      })
+      db.reservation.count({ where: { endAt: { gte: new Date() } } }),
+      db.instrument.findMany({ orderBy: { createdAt: "desc" }, take: 4 })
     ]);
-
-    const upcomingReservations = reservationCalendarReservations.filter((reservation) => reservation.endAt >= new Date());
-
-    return {
-      instrumentCount,
-      userCount,
-      upcomingReservationCount,
-      reservationCalendarReservations,
-      upcomingReservations,
-      instruments,
-      allInstrumentsForCalendar,
-      reservationWindowStart,
-      reservationWindowEnd
-    };
+    return { instrumentCount, userCount, upcomingReservationCount, instruments };
   } catch {
     // Fresh setups render the landing page before migrations exist.
     return {
       instrumentCount: 0,
       userCount: 0,
       upcomingReservationCount: 0,
-      reservationCalendarReservations: [],
-      upcomingReservations: [],
-      instruments: [],
-      allInstrumentsForCalendar: [],
-      reservationWindowStart: new Date(),
-      reservationWindowEnd: new Date()
+      instruments: []
     };
   }
 }
@@ -108,28 +35,9 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
   const query = await searchParams;
   const notice = getNotice(query);
   const parsedWeek = Number(getSingleParam(query, "week") ?? 0);
-  const week = Number.isInteger(parsedWeek) ? Math.max(-156, Math.min(156, parsedWeek)) : 0;
+  const week = homeScheduleWeek(parsedWeek);
   const [user, data] = await Promise.all([getCurrentUser(), loadHomeData()]);
-  const {
-    instrumentCount,
-    userCount,
-    upcomingReservationCount,
-    reservationCalendarReservations,
-    upcomingReservations,
-    instruments,
-    allInstrumentsForCalendar,
-    reservationWindowStart,
-    reservationWindowEnd
-  } = data;
-  const reservationSummaries = summarizeReservations(upcomingReservations.filter(item => isSharedImpact(item.instrument))).slice(0, 8);
-  const reservationCalendarItems = [
-    ...serializeReservationCalendarItems(reservationCalendarReservations.filter(item => isSharedImpact(item.instrument))),
-    ...serializeInstrumentUnavailabilityCalendarItems(
-      allInstrumentsForCalendar.filter(isSharedImpact),
-      getLabDateKey(reservationWindowStart),
-      getLabDateKey(reservationWindowEnd)
-    )
-  ];
+  const { instrumentCount, userCount, upcomingReservationCount, instruments } = data;
   const isTempUser = user?.role === Role.TEMP;
   const isTempCalendarHeld = Boolean(isTempUser && user?.calendarAccessOnHold);
   const getStatusClassName = (status: string) =>
@@ -217,7 +125,7 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
             </article>
           </section>
 
-          <section className="two-column landing-columns" style={{ marginTop: 24 }}>
+          <section style={{ marginTop: 24 }}>
             <article className="panel">
               <div className="section-head">
                 <h2>Live instrument module</h2>
@@ -243,21 +151,10 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
               </div>
             </article>
 
-            <article className="panel">
-              <div className="section-head">
-                <h2>Upcoming shared instrument bookings</h2>
-              </div>
-              <SharedReservationsOverview
-                calendarHref="/instruments#reservation-calendar"
-                calendarItems={reservationCalendarItems}
-                summaries={reservationSummaries}
-              />
-            </article>
           </section>
         </>
       )}
 
-      <p className="page-credit">Designed by Gaurav, 2026.</p>
     </>
   );
 }
