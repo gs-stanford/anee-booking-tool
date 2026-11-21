@@ -1429,3 +1429,13 @@ body { border-top: 6px solid var(--cardinal); }
   .nav-dropdown-menu { left: 0; right: 0; min-width: 0; }
   .home-calendar .section-head { align-items: stretch; }
 }
+
+/* Keep the weekly overview compact; reveal controls only for the selected slot. */
+details.safety-slot { display: block; padding: 0; }
+.safety-slot-summary { display: flex; flex-direction: column; gap: 5px; padding: 10px 22px 10px 10px; cursor: pointer; position: relative; list-style: none; }
+.safety-slot-summary::-webkit-details-marker { display: none; }
+.safety-slot-summary::after { content: "＋"; position: absolute; right: 7px; top: 10px; color: var(--muted); font-size: .8rem; }
+.safety-slot[open] > summary::after { content: "−"; }
+.safety-slot-summary:hover { background: #00000005; }
+.safety-slot-options { display: grid; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+.safety-slot-options small { line-height: 1.4; }

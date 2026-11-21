@@ -22,11 +22,11 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
   const outages = serializeInstrumentUnavailabilityCalendarItems(instruments.filter(isSharedImpact), startDate, endDate);
   return <section className="panel home-calendar" id="lab-calendar">
     <div className="section-head">
-      <div><span className="eyebrow">Lab coordination</span><h2>Safety & shared instrument calendar</h2><p className="muted">Weekday safety evaluations at 9 am and 6 pm. Lasers, CNT reactors, fumehoods and cross-shared instruments. All times: {getLabTimeZone()}.</p></div>
+      <div><span className="eyebrow">Lab coordination</span><h2>Safety & shared instrument calendar</h2><p className="muted">Click a safety slot to sign up or manage it. All times: {getLabTimeZone()}.</p></div>
       <Link className="button button-secondary" href="/instruments#reservation-calendar">Master instrument calendar ↗</Link>
     </div>
-    <p className="muted">Weekly signups repeat from the selected date through the quarter’s last exam day, including holidays. Cancel one date or all remaining dates at any time before the slot starts. During quarter breaks, sign up for individual dates.</p>
-    <details><summary>Jump to a quarter · 2026–2028</summary><div className="inline-actions">
+    <details><summary>Quarter dates & signup details</summary>    <p className="muted">Weekly signups repeat from the selected date through the quarter’s last exam day, including holidays. Cancel one date or all remaining dates at any time before the slot starts. During quarter breaks, sign up for individual dates.</p>
+<div className="inline-actions">
       {QUARTERS.map(q => {
         const offset = Math.floor((Date.parse(`${q.start}T12:00:00Z`) - Date.parse(`${getStartOfLabWeekDateKey(now)}T12:00:00Z`)) / 604800000);
         return <Link key={q.name} className="button button-ghost button-small" href={`/?week=${offset}#lab-calendar`}>{q.name}</Link>;
@@ -51,9 +51,12 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
             const quarter = quarterForDate(date);
             const future = parseLabDateTime(date, time) > now;
             const canRelease = signup && (signup.userId === user.id || user.role === Role.ADMIN);
-            return <div className={`safety-slot${signup ? " is-claimed" : ""}`} key={time}>
-              <span className="event-kind">Safety evaluation · {time === "09:00" ? "9 am" : "6 pm"}</span>
-              <strong>{signup?.user.name ?? (future ? "Volunteer needed" : "Unfilled")}</strong>
+            return <details className={`safety-slot${signup ? " is-claimed" : ""}`} name="safety-slot" key={`${date}-${time}`}>
+              <summary className="safety-slot-summary">
+              <span className="event-kind">Safety · {time === "09:00" ? "9 am" : "6 pm"}</span>
+              <strong>{signup?.user.name ?? (future ? "Open slot" : "Unfilled")}</strong>
+              </summary>
+              <div className="safety-slot-options">
               {quarter && <small>{quarter.name} · through {formatDateKeyLong(quarter.end)}</small>}
               {signup?.seriesId && <small>Weekly signup</small>}
               {future && (!signup || canRelease) && <>
@@ -62,7 +65,10 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
                   <SubmitButton label={operation === "release" ? "Cancel this date" : operation === "release-series" ? "Cancel remaining quarter" : operation === "claim" ? "Reserve weekly" : "This date only"} />
                 </form>)}
               </>}
-            </div>;
+              {!future && <small>This slot has passed.</small>}
+              {future && signup && !canRelease && <small>Reserved by {signup.user.name}. Only the assignee or an admin can cancel.</small>}
+              </div>
+            </details>;
           }) : <p className="weekend-note">No safety signup slots</p>}
           {events.map(booking => <Link className="shared-event" href={`/instruments/${booking.instrumentId}?week=${week}&composeDate=${date}&reservationId=${booking.id}#booking-editor`} key={booking.id}>
             <span className="event-kind">{booking.startAt < dayStart ? "Continues" : getLabTimeKey(booking.startAt)} – {booking.endAt >= dayEnd ? "24:00" : getLabTimeKey(booking.endAt)}</span><strong>{booking.instrument.name}</strong><span>{booking.user.name}</span>
@@ -72,6 +78,6 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
         </article>;
       })}
     </div>
-    <p className="calendar-footnote">Signups assign responsibility for the general lab safety evaluation. Book or change instrument time in the master calendar or the instrument’s own page.</p>
+    <p className="calendar-footnote">Shared instrument bookings appear below safety slots. Open a booking to view its instrument calendar.</p>
   </section>;
 }

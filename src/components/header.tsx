@@ -17,31 +17,8 @@ type HeaderProps = {
 
 export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
   const isTempUser = user?.role === Role.TEMP;
-  const inventoryLoginHref =
-    "/login?returnTo=%2F&noticeType=success&notice=Log%20in%20to%20open%20inventory%20spreadsheets.";
   const safetyLoginHref =
     "/login?returnTo=%2Fsafety&noticeType=success&notice=Log%20in%20to%20open%20the%20Safety%20tools.";
-  const inventoryLinks = [
-    {
-      label: "Gas Cylinders",
-      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7B31cc01ba-ba6d-4a66-8a94-9be7f5514316%7D&wdExp=TEAMS-TREATMENT&web=1"
-    },
-    {
-      label: "Chemicals",
-      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7B44c63b7b-a13a-4b70-8fcc-fef0dcdd573d%7D&wdExp=TEAMS-TREATMENT&web=1"
-    },
-    {
-      label: "Consumables",
-      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7B51990952-4f01-4954-b8be-b1f671b87f63%7D&wdExp=TEAMS-TREATMENT&web=1"
-    },
-    {
-      label: "Standard Parts",
-      href: "https://office365stanford.sharepoint.com/:x:/r/sites/SU-Group-ME-Boies-ANEE-LabConcerns/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7Bad8b47ba-55e3-403f-bc90-74bbd7590f9e%7D&wdExp=TEAMS-TREATMENT&web=1"
-    }
-  ];
-  const visibleInventoryLinks = isTempUser
-    ? inventoryLinks.filter((item) => item.label === "Chemicals")
-    : inventoryLinks;
   const safetyLinks = [
     {
       label: "Safety Home",
@@ -76,28 +53,6 @@ export function Header({ user, labName, appUrl, marketingUrl }: HeaderProps) {
           <Link className="nav-link" href="/instruments">
             {isTempUser ? "Calendar" : "Instruments"}
           </Link>
-          {user && visibleInventoryLinks.length > 0 ? (
-            <div className="nav-dropdown" tabIndex={0}>
-              <span className="nav-link nav-dropdown-trigger">Inventory</span>
-              <div className="nav-dropdown-menu">
-                {visibleInventoryLinks.map((item) => (
-                  <a
-                    className="nav-dropdown-item"
-                    href={item.href}
-                    key={item.label}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-          ) : !user ? (
-            <Link className="nav-link" href={inventoryLoginHref}>
-              Inventory
-            </Link>
-          ) : null}
           {user ? (
             <div className="nav-dropdown" tabIndex={0}>
               <Link className="nav-link nav-dropdown-trigger" href="/safety">
