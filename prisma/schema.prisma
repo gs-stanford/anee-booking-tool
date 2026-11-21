@@ -37,6 +37,7 @@ model User {
   role               Role               @default(MEMBER)
   calendarAccessOnHold Boolean          @default(false)
   ownedInstruments   Instrument[]       @relation("InstrumentOwner")
+  teaTimePresentations TeaTimeSession[]
   safetySignups      SafetySignup[]
   reservations       Reservation[]
   maintenanceEntries MaintenanceEntry[] @relation("MaintenancePerformedBy")
@@ -166,4 +167,14 @@ model SafetySignup {
   @@index([seriesId])
   @@unique([date, time])
   @@index([userId])
+}
+
+model TeaTimeSession {
+  date          String  @id
+  presenterName String?
+  signupEnabled Boolean @default(false)
+  presenterId   String?
+  presenter     User?   @relation(fields: [presenterId], references: [id], onDelete: SetNull)
+
+  @@index([presenterId])
 }

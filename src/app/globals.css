@@ -1439,3 +1439,5 @@ details.safety-slot { display: block; padding: 0; }
 .safety-slot-summary:hover { background: #00000005; }
 .safety-slot-options { display: grid; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
 .safety-slot-options small { line-height: 1.4; }
+
+.tea-time-slot { background: #f6f3e9; border-color: #d8c9a3; border-left-color: #8f6e22; }

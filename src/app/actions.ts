@@ -1,5 +1,6 @@
 "use server";
 
+import { updateTeaTimeSignup } from "@/lib/tea-time";
 import { randomUUID } from "node:crypto";
 import { isUpcomingSafetySlot } from "@/lib/home-schedule";
 import { quarterSignupDates } from "@/lib/academic-quarters";
@@ -1368,4 +1369,17 @@ export async function safetySignupAction(formData: FormData) {
   }
   revalidatePath("/");
   redirect(withNotice(target, "success", operation === "release-series" ? "Remaining weekly signups canceled." : operation === "release" ? "This date canceled; other weekly signups are unchanged." : operation === "claim" ? "Weekly safety signup reserved through the end of the quarter." : "Safety signup reserved for this date."));
+}
+
+export async function teaTimeSignupAction(formData: FormData) {
+  const user = await requireUser();
+  blockTempInternalToolAccess(user, "/");
+  const date = String(formData.get("date") ?? "");
+  const operation = String(formData.get("operation") ?? "");
+  const week = Number(formData.get("week") ?? 0);
+  const target = Number.isInteger(week) && Math.abs(week) <= 156 ? `/?week=${week}` : "/";
+  const changed = await updateTeaTimeSignup(db, user, date, operation);
+  if (!changed) redirect(withNotice(target, "error", "This presentation is no longer available, has started, or belongs to another presenter."));
+  revalidatePath("/");
+  redirect(withNotice(target, "success", operation === "release" ? "Tea Time signup canceled. The slot is open again." : "You are signed up to present at Tea Time."));
 }

@@ -200,3 +200,9 @@ Regression check (after migrations on the isolated test database):
 Safety signups launch on January 4, 2027 (Winter quarter). Before launch, the homepage defaults to that week; afterwards it defaults to the current lab week. Earlier navigation is clamped, elapsed safety slots and completed shared bookings are hidden, and the server rejects pre-launch safety signups. Historical records remain stored. The redundant bookings summary and design-credit footer have been removed from the homepage.
 
 Run the schedule boundary checks with `node --import tsx scripts/test-home-schedule.ts`.
+
+## Tea Time
+
+The homepage includes the ten supplied Tea Time dates from January 4 through April 5, 2027, at 1–2 pm in the lab timezone. Named presenters are stored as supplied, independently of account names. Only March 29 (quals practice) accepts a member signup; an atomic conditional update prevents double claims. The presenter or an admin can release that signup before 1 pm. Controls appear when the event is expanded. Completed meetings disappear at 2 pm. Unlisted Mondays do not receive inferred meetings.
+
+Run `DATABASE_URL=file:/private/tmp/lab-calendar-test.db node --import tsx scripts/test-tea-time.ts` against the migrated isolated test database to check schedule, permissions, concurrency, cancellation and DST.
