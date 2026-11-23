@@ -15,6 +15,10 @@ async function main() {
   const instrument=await db.instrument.create({data:{name:`Drag test ${suffix}`,description:"test",location:"test",crossShared:true}});
   const now=new Date("2026-11-20T20:00:00Z");
   try {
+    process.env.OUTLOOK_CLIENT_ID="test";process.env.OUTLOOK_CLIENT_SECRET="test";process.env.OUTLOOK_TENANT_ID="test";process.env.APP_URL="https://lab.example.test";process.env.OUTLOOK_TOKEN_ENCRYPTION_KEY=randomBytes(32).toString("base64");
+    process.env.OUTLOOK_INVITES_ENABLED="true";
+    await db.outlookConnection.create({data:{userId:a.id,microsoftId:`test-${suffix}`,email:a.email,refreshToken:sealOutlook("test-refresh"),invitesApproved:true,lastSyncedAt:new Date()}});
+
     const original=await db.reservation.create({data:{userId:a.id,instrumentId:instrument.id,startAt:parseLabDateTime("2027-01-09","23:30"),endAt:parseLabDateTime("2027-01-10","01:00")}});
     const move={id:original.id,kind:"instrument" as const,originalStart:original.startAt.toISOString(),originalEnd:original.endAt.toISOString(),date:"2027-01-10",time:"10:00"};
     await assert.rejects(moveCalendarBooking(db,b,move,now));
@@ -29,7 +33,7 @@ async function main() {
     await db.instrument.update({where:{id:instrument.id},data:{status:"UNAVAILABLE"}});
     await assert.rejects(moveCalendarBooking(db,a,{...updatedMove,date:"2027-01-12"},now));
     await db.instrument.update({where:{id:instrument.id},data:{status:"AVAILABLE"}});
-    await saveCalendarBooking(db,b,{kind:"event",title:"Invited event",location:"test",impact:"test",startDate:"2027-01-12",endDate:"2027-01-12",startTime:"12:00",endTime:"13:00",inviteeIds:[a.id]},undefined,now);
+    await saveCalendarBooking(db,b,{kind:"event",title:"Invited event",location:"test",impact:"test",startDate:"2027-01-12",endDate:"2027-01-12",startTime:"12:00",endTime:"13:00",invitationsEdited:"on",inviteeIds:[a.id]},undefined,now);
     assert.equal(await db.labEventInvite.count({where:{userId:a.id}}),1);
     await db.safetySignup.createMany({data:[{date:"2028-12-04",time:"09:00",userId:a.id},{date:"2028-12-04",time:"18:00",userId:b.id}]});
     await db.teaTimeSession.create({data:{date:"2028-12-04",presenterId:a.id}});
@@ -37,11 +41,9 @@ async function main() {
     assert.equal(personal.length,4);
     assert.equal(personal.some(e=>e.key===`reservation:${blocker.id}`),false);
     assert.equal(personal.filter(e=>e.key.startsWith("safety:")).length,1);
-    process.env.OUTLOOK_CLIENT_ID="test";process.env.OUTLOOK_CLIENT_SECRET="test";process.env.OUTLOOK_TENANT_ID="test";process.env.APP_URL="https://lab.example.test";process.env.OUTLOOK_TOKEN_ENCRYPTION_KEY=randomBytes(32).toString("base64");
     assert.equal(openOutlook(sealOutlook("test-refresh")),"test-refresh");
     const sealed=Buffer.from(sealOutlook("secret"),"base64url");sealed[30]^=1;
     assert.throws(()=>openOutlook(sealed.toString("base64url")));
-    await db.outlookConnection.create({data:{userId:a.id,microsoftId:`test-${suffix}`,email:a.email,refreshToken:sealOutlook("test-refresh")}});
     const calls:{url:string;method:string;body:Record<string,unknown>}[]=[];
     globalThis.fetch=async(input,init)=>{
       const url=String(input),method=init?.method??"GET";

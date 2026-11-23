@@ -50,3 +50,11 @@ The ready-to-submit request is in `stanford-it-outlook-request.txt`. Submit via 
 ## Verification before enabling broadly
 
 Use an approved test mailbox: connect; create, move and cancel a booking; invite another lab account; check only the intended users receive copies. Verify a safety cancellation and Tea Time presenter swap remove the prior assignee's future event. Test linked Microsoft sign-in, rejection of unlinked/disconnected identities, reconnect, revoked consent, and the retry job. For Teams, verify creation, one shared link for organizer/invitee, rescheduling, disabling Teams, and cancellation. Local automated tests mock Microsoft Graph; they do not replace this tenant-level acceptance check.
+
+## Invitation rollout gate
+
+`OUTLOOK_INVITES_ENABLED` defaults to false. Keep it off until the invitation workflow is approved and tested. Microsoft configuration alone does not expose the invite list. **Inbox invitation notifications are not implemented by the current calendar-copy sync**; the gate must stay off for the requested inbox-notification rollout until that work and any required review are complete.
+
+Once enabled, recipients must be non-temporary lab members with an active Outlook connection, at least one successful sync, and explicit lab-admin approval under **Admin → User accounts → Approve invitations**. Approval defaults to false, including existing connections. Disconnecting clears approval; switching Microsoft identities creates a new unapproved connection. The organizer is shown as automatically included, rather than omitted from the list. This does not require a self-invitation.
+
+The server enforces recipient eligibility, and sync checks eligibility again before exporting invited events. Revoked approval removes future invitation-only copies on the next successful sync; owned bookings and assigned shifts continue syncing. Ordinary edits while invitations are hidden preserve previously stored invitees. Revocation does not send an inbox notification.

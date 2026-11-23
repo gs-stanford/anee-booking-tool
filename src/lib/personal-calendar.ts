@@ -1,11 +1,13 @@
+import { calendarInvitationsEnabled, approvedInviteRecipientWhere } from "@/lib/calendar-invitations";
 import { PrismaClient, Role } from "@prisma/client";
 import { getLabDateKey, parseLabDateTime } from "@/lib/lab-time";
 import { resolvePresenterId } from "@/lib/tea-time";
 export type PersonalEvent = { key:string; title:string; location:string; notes:string; startAt:Date; endAt:Date };
 export async function personalCalendarEvents(client:PrismaClient,userId:string,now=new Date()):Promise<PersonalEvent[]> {
+  const canReceiveInvites=calendarInvitationsEnabled() && Boolean(await client.user.findFirst({where:{id:userId,...approvedInviteRecipientWhere},select:{id:true}}));
   const [reservations,events,safety,tea,members] = await Promise.all([
-    client.reservation.findMany({where:{endAt:{gt:now},OR:[{userId},{invitees:{some:{userId}}}]},include:{instrument:true}}),
-    client.labEvent.findMany({where:{endAt:{gt:now},OR:[{ownerId:userId},{invitees:{some:{userId}}}]},include:{teamsMeeting:true}}),
+    client.reservation.findMany({where:{endAt:{gt:now},OR:[{userId},...(canReceiveInvites?[{invitees:{some:{userId}}}]:[])]},include:{instrument:true}}),
+    client.labEvent.findMany({where:{endAt:{gt:now},OR:[{ownerId:userId},...(canReceiveInvites?[{invitees:{some:{userId}}}]:[])]},include:{teamsMeeting:true}}),
     client.safetySignup.findMany({where:{userId,date:{gte:getLabDateKey(now)}}}),
     client.teaTimeSession.findMany({where:{date:{gte:getLabDateKey(now)}}}),
     client.user.findMany({where:{role:{not:Role.TEMP}},select:{id:true,name:true}})

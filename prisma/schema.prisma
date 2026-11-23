@@ -223,6 +223,7 @@ model LabEventInvite {
 }
 
 model OutlookConnection {
+  invitesApproved Boolean @default(false)
   userId String @id
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   microsoftId String @unique

@@ -1,3 +1,4 @@
+import { calendarInvitationsEnabled, calendarInviteRecipients } from "@/lib/calendar-invitations";
 import { teamsConfigured } from "@/lib/outlook";
 import { PrismaClient, Role } from "@prisma/client";
 import { z } from "zod";
@@ -7,6 +8,7 @@ import { SAFETY_SCHEDULE_START } from "@/lib/home-schedule";
 import { isSharedImpact } from "@/lib/home-calendar";
 
 export const calendarBookingSchema = z.object({
+  invitationsEdited: z.literal("on").optional(),
   inviteeIds: z.array(z.string().min(1)).max(100).optional(),
   kind: z.enum(["instrument", "event", "meeting"]),
   teamsEnabled: z.enum(["on", "off"]).optional(),
@@ -36,9 +38,19 @@ export async function saveCalendarBooking(client: PrismaClient, user: { id: stri
   if (allDay && getLabDateKey(parseLabDateTime(input.endDate, "00:00")) !== input.endDate) throw new Error("Choose a valid end date.");
   if (!Number.isFinite(startAt.getTime()) || !Number.isFinite(endAt.getTime()) || (allDay ? input.startDate < getLabDateKey(now) : startAt <= now) || endAt <= startAt || getLabDateKey(startAt) !== input.startDate || getLabDateKey(endAt) !== endDate || getLabTimeKey(startAt) !== startTime || getLabTimeKey(endAt) !== endTime) throw new Error("Choose valid future start and end times in the lab timezone.");
   return client.$transaction(async tx => {
-    const inviteeIds = [...new Set(input.inviteeIds ?? [])].filter(id => id !== user.id);
-    if (await tx.user.count({where:{id:{in:inviteeIds},role:{not:Role.TEMP}}}) !== inviteeIds.length) throw new Error("Choose valid lab members to invite.");
-    const invitees = inviteeIds.map(userId => ({userId}));
+    const existingEvent = edit ? await tx.labEvent.findUnique({where:{id:edit.id},include:{invitees:true}}) : null;
+    if(edit && (!existingEvent || (user.role!==Role.ADMIN && existingEvent.ownerId!==user.id))) throw new Error("You do not have permission to edit this event.");
+    const ownerId=existingEvent?.ownerId ?? user.id;
+    const submitted=[...new Set(input.inviteeIds ?? [])].filter(id=>id!==ownerId);
+    const editingInvitations=input.invitationsEdited === "on";
+    if ((submitted.length || editingInvitations) && !calendarInvitationsEnabled()) throw new Error("Invitations are not enabled yet.");
+    if(submitted.length && !editingInvitations) throw new Error("Use the invitation controls to select recipients.");
+    const eligible=editingInvitations ? await calendarInviteRecipients(tx) : [];
+    if(submitted.some(id=>!eligible.some(member=>member.id===id))) throw new Error("Invite only approved members with a connected, successfully synced Outlook account.");
+    // Hidden controls must not erase earlier invitations on an ordinary event edit.
+    // Preserve temporarily ineligible recipients; eligibility is also checked at sync.
+    const inviteeIds=editingInvitations ? [...new Set([...submitted,...(existingEvent?.invitees ?? []).filter(invite=>!eligible.some(member=>member.id===invite.userId)).map(invite=>invite.userId)])] : (existingEvent?.invitees ?? []).map(invite=>invite.userId);
+    const invitees=inviteeIds.filter(id=>id!==ownerId).map(userId=>({userId}));
     if (input.kind === "instrument") {
       if (edit) throw new Error("Edit instrument reservations from the instrument calendar.");
       const instrument = await tx.instrument.findUnique({ where: { id: input.instrumentId || "" } });

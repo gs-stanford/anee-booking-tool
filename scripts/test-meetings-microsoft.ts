@@ -12,21 +12,23 @@ async function main() {
   const a=await db.user.create({data:{name:"Meeting Owner",email:`meeting-a-${suffix}@example.test`,passwordHash:"test"}});
   const b=await db.user.create({data:{name:"Meeting Guest",email:`meeting-b-${suffix}@example.test`,passwordHash:"test"}});
   const now=new Date("2026-11-20T20:00Z");
-  const input={kind:"meeting",title:`Meeting ${suffix}`,location:"MERL",notes:"Discuss results",startDate:"2027-02-01",endDate:"2027-02-01",startTime:"14:00",endTime:"15:00",inviteeIds:[b.id]};
+  const input={kind:"meeting",title:`Meeting ${suffix}`,location:"MERL",notes:"Discuss results",startDate:"2027-02-01",endDate:"2027-02-01",startTime:"14:00",endTime:"15:00",invitationsEdited:"on",inviteeIds:[b.id]};
   try {
+    process.env.OUTLOOK_CLIENT_ID="test";process.env.OUTLOOK_CLIENT_SECRET="test";process.env.OUTLOOK_TENANT_ID="test";process.env.APP_URL="https://lab.example.test";process.env.OUTLOOK_TOKEN_ENCRYPTION_KEY=randomBytes(32).toString("base64");
+    process.env.OUTLOOK_INVITES_ENABLED="true";process.env.OUTLOOK_TEAMS_ENABLED="false";
+    for(const user of [b,a]) await db.outlookConnection.create({data:{userId:user.id,microsoftId:`ms-${user.id}`,email:user.email,refreshToken:sealOutlook(user.id),invitesApproved:true,lastSyncedAt:new Date()}});
+
     await saveCalendarBooking(db,a,input,undefined,now);
     let event=await db.labEvent.findFirstOrThrow({where:{ownerId:a.id}});
     assert.equal(event.eventType,"meeting");assert.equal(event.notes,"Discuss results");assert.equal(event.impact,"");
     await assert.rejects(saveCalendarBooking(db,b,input,{id:event.id,version:0},now));
     await assert.rejects(saveCalendarBooking(db,a,{...input,kind:"event"},undefined,now),"impact remains mandatory for cross-impact events");
     await assert.rejects(saveCalendarBooking(db,a,{...input,teamsEnabled:"on"},{id:event.id,version:0},now));
-    process.env.OUTLOOK_CLIENT_ID="test";process.env.OUTLOOK_CLIENT_SECRET="test";process.env.OUTLOOK_TENANT_ID="test";process.env.APP_URL="https://lab.example.test";process.env.OUTLOOK_TOKEN_ENCRYPTION_KEY=randomBytes(32).toString("base64");
     process.env.OUTLOOK_TEAMS_ENABLED="false";
     assert.equal(new URL(outlookAuthorizeUrl("s","v")).searchParams.get("scope")?.includes("OnlineMeetings"),false);
     process.env.OUTLOOK_TEAMS_ENABLED="true";
     assert.equal(new URL(outlookAuthorizeUrl("s","v")).searchParams.get("scope")?.includes("OnlineMeetings.ReadWrite"),true);
     // Guest is connected first to exercise the organizer-first Teams sync pass.
-    for(const user of [b,a]) await db.outlookConnection.create({data:{userId:user.id,microsoftId:`ms-${user.id}`,email:user.email,refreshToken:sealOutlook(user.id)}});
     assert.equal((await linkedMicrosoftUser(db,`ms-${a.id}`)).id,a.id);
     await assert.rejects(linkedMicrosoftUser(db,"not-linked"));
     const state={mode:"connect",state:"state-value",verifier:"verifier",userId:a.id,expires:Date.now()+60000};

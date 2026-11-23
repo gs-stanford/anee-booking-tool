@@ -1471,7 +1471,7 @@ export async function syncMyOutlookAction() {
 }
 export async function disconnectOutlookAction() {
   const user = await requireUser();
-  await db.outlookConnection.updateMany({where:{userId:user.id},data:{refreshToken:"",lastError:null}});
+  await db.outlookConnection.updateMany({where:{userId:user.id},data:{refreshToken:"",lastError:null,invitesApproved:false,lastSyncedAt:null}});
   revalidatePath("/account");
   redirect(withNotice("/account","success","Outlook disconnected. Microsoft sign-in is disabled; existing Outlook entries remain."));
 }
@@ -1480,4 +1480,19 @@ export async function moveCalendarBookingFormAction(form:FormData) {
   const result=await moveCalendarBookingAction(input);
   const week=homeScheduleWeek(Number(form.get("week")));
   redirect(`${withNotice(`/?week=${week}`,result.error?"error":"success",result.error??result.success??"Booking updated.")}#lab-calendar`);
+}
+
+export async function updateInvitationApprovalAction(form:FormData) {
+  const admin=await requireAdmin();
+  try {
+    const {setInvitationApproval}=await import("@/lib/calendar-invitations");
+    const approved=String(form.get("approved"))==="true";
+    if(approved && !outlookConfigured()) throw new Error("Outlook setup must be completed first.");
+    await setInvitationApproval(db,admin,String(form.get("userId")??""),approved);
+  } catch(error) {
+    redirect(withNotice("/admin/users","error",error instanceof Error?error.message:"Could not update invitation approval."));
+  }
+  if(outlookConfigured()) after(syncConnectedOutlookCalendars);
+  revalidatePath("/");revalidatePath("/admin/users");
+  redirect(withNotice("/admin/users","success","Invitation approval updated."));
 }

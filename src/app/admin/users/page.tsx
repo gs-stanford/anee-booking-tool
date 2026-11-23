@@ -1,6 +1,7 @@
+import { outlookConfigured } from "@/lib/outlook";
 import { Role } from "@prisma/client";
 
-import { createUserAction, deleteUserAction, updateUserCalendarHoldAction } from "@/app/actions";
+import { createUserAction, updateInvitationApprovalAction, deleteUserAction, updateUserCalendarHoldAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -16,6 +17,7 @@ export default async function AdminUsersPage({
   const admin = await requireAdmin();
   const [users, notice] = await Promise.all([
     db.user.findMany({
+      include:{outlookConnection:{select:{invitesApproved:true,lastSyncedAt:true,refreshToken:true}}},
       orderBy: {
         createdAt: "desc"
       }
@@ -109,6 +111,13 @@ export default async function AdminUsersPage({
                   <span className="tag">Current admin</span>
                 )}
               </div>
+              {user.role!==Role.TEMP && <div className="inline-actions">
+                <span className="muted">Outlook invitations: {user.outlookConnection?.invitesApproved ? "Approved" : "Not approved"}</span>
+                {user.outlookConnection?.invitesApproved || (outlookConfigured() && user.outlookConnection?.refreshToken && user.outlookConnection.lastSyncedAt) ? <form action={updateInvitationApprovalAction}>
+                  <input type="hidden" name="userId" value={user.id}/><input type="hidden" name="approved" value={user.outlookConnection?.invitesApproved ? "false" : "true"}/>
+                  <button className="button button-secondary button-small">{user.outlookConnection?.invitesApproved ? "Revoke invitation approval" : "Approve invitations"}</button>
+                </form> : <small>Requires a connected Outlook account and successful sync.</small>}
+              </div>}
             </div>
           ))}
         </div>

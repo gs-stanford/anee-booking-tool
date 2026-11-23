@@ -6,8 +6,8 @@ import { shiftDateString } from "@/lib/lab-time";
 import { SubmitButton } from "@/components/submit-button";
 export type EventEdit = { eventType?: string; notes?: string; teamsEnabled?: boolean; inviteeIds?: string[]; id: string; version: number; title: string; location: string; impact: string; startDate: string; endDate: string; startTime: string; endTime: string };
 export type BookingDraft = { date: string; time?: string; endDate?: string; endTime?: string; allDay?: boolean };
-export type CalendarBookingOptions = { teamsAvailable?: boolean; week: number; instruments: { id: string; name: string }[]; timeZone: string; members?: {id:string;name:string}[] };
-export function CalendarBookingForm({ date, week, instruments, teamsAvailable = false, members = [], event, draft, onClose }: CalendarBookingOptions & { date: string; event?: EventEdit; draft?: BookingDraft; onClose?: () => void }) {
+export type CalendarBookingOptions = { invitationsEnabled?: boolean; organizer?: {id:string;name:string}; teamsAvailable?: boolean; week: number; instruments: { id: string; name: string }[]; timeZone: string; members?: {id:string;name:string}[] };
+export function CalendarBookingForm({ date, week, instruments, invitationsEnabled = false, organizer, teamsAvailable = false, members = [], event, draft, onClose }: CalendarBookingOptions & { date: string; event?: EventEdit; draft?: BookingDraft; onClose?: () => void }) {
   const [kind, setKind] = useState(event?.eventType ?? "meeting");
   const id = useId();
   const isAllDay = Boolean(event && event.startTime === "00:00" && event.endTime === "00:00" && event.endDate > event.startDate);
@@ -52,7 +52,7 @@ export function CalendarBookingForm({ date, week, instruments, teamsAvailable = 
       </div>
       {allDay ? <small>Includes every selected date, from midnight through midnight after the end date.</small> : endDate > startDate && <small>Overnight / multi-day booking · ends {endDate} at {endTime}.</small>}
       <div className="field"><label htmlFor={`${id}-notes`}>Notes (optional)</label><textarea id={`${id}-notes`} name="notes" maxLength={2000} defaultValue={event?.notes} placeholder="Agenda, preparation, or anything attendees should know." /></div>
-      {members.length > 0 && <details className="calendar-invitees"><summary>Invite lab members</summary><p className="muted">Selected members can include this event in their connected Outlook calendar.</p>{members.map(member => <label className="calendar-all-day-toggle" key={member.id}><input type="checkbox" name="inviteeIds" value={member.id} defaultChecked={event?.inviteeIds?.includes(member.id)} />{member.name}</label>)}</details>}
+      {invitationsEnabled && <details className="calendar-invitees"><summary>Invite lab members</summary><input type="hidden" name="invitationsEdited" value="on" />{organizer && <label className="calendar-all-day-toggle"><input type="checkbox" checked disabled />{organizer.name} (organizer)</label>}<p className="muted">The organizer is included automatically. Only approved members with connected Outlook calendars appear here.</p>{members.map(member => <label className="calendar-all-day-toggle" key={member.id}><input type="checkbox" name="inviteeIds" value={member.id} defaultChecked={event?.inviteeIds?.includes(member.id)} />{member.name}</label>)}</details>}
       {kind !== "instrument" && <small>Meeting details are visible to lab members on this calendar.</small>}
       <SubmitButton label={event ? "Save event changes" : "Save booking"} />
     </form>
