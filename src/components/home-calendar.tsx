@@ -46,7 +46,7 @@ export async function HomeCalendar({ user, week, focusDate, initialView, focusNo
     for (const entry of academicCalendarForDate(date)) events.push({
       id:`academic-${entry.start}-${entry.title}`, date, start:0, end:1440, allDay:true,
       title:`${entry.title}${entry.projected ? " (projected)" : ""}`, person:"", kind:"academic",
-      content:<div className="form-grid"><p>{entry.note}</p><p>{formatDateKeyLong(entry.start)}{entry.end!==entry.start ? ` – ${formatDateKeyLong(entry.end)}` : ""}</p><p>Reservations and safety signups remain available.</p><a href={entry.source} target="_blank" rel="noopener noreferrer">Stanford calendar source ↗</a></div>
+      content:<div key={`academic-${entry.start}-${entry.title}-${date}`} className="form-grid"><p>{entry.note}</p><p>{formatDateKeyLong(entry.start)}{entry.end!==entry.start ? ` – ${formatDateKeyLong(entry.end)}` : ""}</p><p>Reservations and safety signups remain available.</p><a href={entry.source} target="_blank" rel="noopener noreferrer">Stanford calendar source ↗</a></div>
     });
     const dayStart = parseLabDateTime(date, "00:00");
     const dayEnd = parseLabDateTime(shiftDateString(date, 1), "00:00");
