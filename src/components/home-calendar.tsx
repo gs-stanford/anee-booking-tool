@@ -3,12 +3,11 @@ import { calendarInviteRecipients, calendarInvitationsEnabled } from "@/lib/cale
 import { teamsConfigured } from "@/lib/outlook";
 import { CalendarMoveForm } from "@/components/calendar-move-form";
 import { ScheduleGrid, type ScheduleEvent } from "@/components/schedule-grid";
-import { CalendarDialog } from "@/components/calendar-dialog";
 import { CalendarBookingForm } from "@/components/calendar-booking-form";
 import { cancelLabEventAction } from "@/app/actions";
 import { TeaTimeSlot } from "@/components/tea-time-slot";
 import { teaTimeIsUpcoming } from "@/lib/tea-time";
-import { isUpcomingSafetySlot, minimumHomeWeek, SAFETY_SCHEDULE_START } from "@/lib/home-schedule";
+import { isUpcomingSafetySlot, SAFETY_SCHEDULE_START } from "@/lib/home-schedule";
 import { quarterForDate } from "@/lib/academic-quarters";
 import Link from "next/link";
 import { Role } from "@prisma/client";
@@ -20,9 +19,8 @@ import { serializeInstrumentUnavailabilityCalendarItems, isAllDayReservation } f
 import { SubmitButton } from "@/components/submit-button";
 
 type CalendarUser = { id: string; role: Role };
-export async function HomeCalendar({ user, week }: { user: CalendarUser; week: number }) {
+export async function HomeCalendar({ user, week, focusDate, initialView, focusNow }: { user: CalendarUser; week: number; focusDate?:string; initialView:"day"|"week"; focusNow:boolean }) {
   const now = new Date();
-  const minimumWeek = minimumHomeWeek(now);
   const today = getLabDateKey(now);
   const startDate = shiftDateString(getStartOfLabWeekDateKey(now), week * 7);
   const endDate = shiftDateString(startDate, 7);
@@ -81,15 +79,6 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
       <div className="schedule-title"><h1>Calendar</h1></div>
       <CalendarBookingForm date={startDate < minimumDate ? minimumDate : startDate} week={week} instruments={sharedInstrumentOptions} timeZone={getLabTimeZone()} teamsAvailable={teamsAvailable} members={inviteRecipients.filter(member=>member.id!==user.id)} invitationsEnabled={calendarInvitationsEnabled()} organizer={members.find(member=>member.id===user.id)} />
     </div>
-    <div className="schedule-navigation">
-      <nav aria-label="Calendar weeks">
-        {week > minimumWeek ? <Link className="button button-ghost button-small" aria-label="Previous week" href={`/?week=${week - 1}#lab-calendar`}>‹</Link> : <button className="button button-ghost button-small" aria-label="Previous week" disabled>‹</button>}
-        <Link className="button button-ghost button-small" href="/#lab-calendar">{minimumWeek > 0 ? "Start" : "Today"}</Link>
-        {week < 156 && <Link className="button button-ghost button-small" aria-label="Next week" href={`/?week=${week + 1}#lab-calendar`}>›</Link>}
-      </nav>
-      <CalendarDialog title="Go to date" label={`${formatDateKeyLong(startDate)} – ${formatDateKeyLong(shiftDateString(startDate, 6))}`} triggerClassName="schedule-range"><form action="/" className="form-grid"><label>Go to date<input type="date" name="date" defaultValue={startDate} min={today > SAFETY_SCHEDULE_START ? today : SAFETY_SCHEDULE_START} required /></label><button className="button button-primary">Go</button></form></CalendarDialog>
-      <Link className="schedule-master" href="/instruments#reservation-calendar">All instruments ↗</Link>
-    </div>
-    <ScheduleGrid days={days} events={events} today={today} minimumDate={minimumDate} booking={{ teamsAvailable, invitationsEnabled:calendarInvitationsEnabled(), organizer:members.find(member=>member.id===user.id), members:inviteRecipients.filter(member=>member.id!==user.id), week, instruments: sharedInstrumentOptions, timeZone: getLabTimeZone() }} />
+    <ScheduleGrid key={`${startDate}-${focusDate}-${initialView}-${focusNow}`} focusDate={focusDate} initialView={initialView} focusNow={focusNow} initialNow={now.toISOString()} days={days} events={events} today={today} minimumDate={minimumDate} booking={{ teamsAvailable, invitationsEnabled:calendarInvitationsEnabled(), organizer:members.find(member=>member.id===user.id), members:inviteRecipients.filter(member=>member.id!==user.id), week, instruments: sharedInstrumentOptions, timeZone: getLabTimeZone() }} />
   </section>;
 }

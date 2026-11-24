@@ -1,5 +1,4 @@
-import { getStartOfLabWeekDateKey } from "@/lib/lab-time";
-import { homeScheduleWeek } from "@/lib/home-schedule";
+import { calendarNavigationWeek } from "@/lib/calendar-navigation";
 import { HomeCalendar } from "@/components/home-calendar";
 import { Notice } from "@/components/notice";
 import { getNotice, getSingleParam } from "@/lib/utils";
@@ -36,9 +35,7 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
   const query = await searchParams;
   const notice = getNotice(query);
   const jumpDate = getSingleParam(query, "date");
-  const jump = jumpDate && /^\d{4}-\d{2}-\d{2}$/.test(jumpDate) ? Date.parse(`${jumpDate}T12:00:00Z`) : NaN;
-  const parsedWeek = Number.isFinite(jump) ? Math.floor((jump - Date.parse(`${getStartOfLabWeekDateKey(new Date())}T12:00:00Z`)) / 604800000) : Number(getSingleParam(query, "week") ?? 0);
-  const week = homeScheduleWeek(parsedWeek);
+  const week = calendarNavigationWeek(jumpDate, getSingleParam(query,"week"));
   const user = await getCurrentUser();
   const data = await loadHomeData();
   const { instrumentCount, userCount, upcomingReservationCount, instruments } = data;
@@ -84,7 +81,7 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
       </section>
 
       {notice ? <Notice type={notice.type} message={notice.message} /> : null}
-      {user && !isTempUser ? <HomeCalendar user={user} week={week} /> : null}
+      {user && !isTempUser ? <HomeCalendar user={user} week={week} focusDate={jumpDate} initialView={getSingleParam(query,"view")==="day"?"day":"week"} focusNow={getSingleParam(query,"focus")==="now"} /> : null}
 
       {isTempUser ? (
         <section className="panel">

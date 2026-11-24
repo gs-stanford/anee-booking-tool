@@ -1606,3 +1606,21 @@ details.safety-slot { display: block; padding: 0; }
 .schedule-event-academic strong { white-space: normal; font-weight: 500; }
 .schedule-all-day .schedule-day:has(.schedule-event-academic) { padding-bottom: 18px; }
 .schedule-all-day .schedule-day:has(.schedule-event-academic) > .schedule-all-day-add { top: auto; height: 18px; }
+
+.schedule-view-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.schedule-view-select { width: auto; min-height: 32px; padding: 4px 24px 4px 8px; font-size: 13px; }
+.schedule-now-line { position: absolute; left: 0; right: 0; height: 2px; background: #b42318; z-index: 3; pointer-events: none; }
+.schedule-now-line::before { content: ""; position: absolute; width: 7px; height: 7px; top: -3px; left: -3px; background: #b42318; border-radius: 50%; }
+.schedule-now-line span { position: absolute; right: 2px; bottom: 2px; font-size: 10px; line-height: 12px; color: #b42318; background: white; padding: 0 2px; }
+.is-day-view .schedule-grid { grid-template-columns: 56px minmax(0,1fr); }
+.is-day-view .schedule-day:not(.is-selected) { display: none; }
+.is-day-view .schedule-day-picker { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); padding: 4px; border-bottom: 1px solid var(--line); }
+.is-day-view .schedule-day-picker button { border: 0; background: none; padding: 5px; font: inherit; font-size: 12px; cursor: pointer; border-radius: 4px; }
+.is-day-view .schedule-day-picker button span, .is-day-view .schedule-day-picker button strong { display: block; }
+.is-day-view .schedule-day-picker button[aria-pressed=true] { background: #8c1515; color: white; }
+@media(max-width:700px) {
+  .schedule-view-select { display: none; }
+  .schedule-view-tools { gap: 0; }
+  .schedule-navigation .schedule-range { order: 3; flex-basis: 100%; }
+  .is-day-view .schedule-grid { grid-template-columns: 46px minmax(0,1fr); }
+}

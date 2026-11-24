@@ -1,13 +1,33 @@
 "use client";
+import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {formatDateKeyLong, getLabDateKey, getLabTimeKey, shiftDateString} from "@/lib/lab-time";
 import { useScheduleDrag } from "@/components/use-schedule-drag";
 import type { MoveBooking } from "@/lib/calendar-move";
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { CalendarBookingForm, type BookingDraft, type CalendarBookingOptions } from "@/components/calendar-booking-form";
 import { CalendarDialog } from "@/components/calendar-dialog";
 export type ScheduleEvent = { id: string; date: string; start: number; end: number; title: string; person: string; kind: string; content: ReactNode; allDay?: boolean; move?: Omit<MoveBooking, "date" | "time"> };
-export function ScheduleGrid({ days, events, today, booking, minimumDate }: { booking: CalendarBookingOptions; minimumDate: string; days: { date: string; label: string }[]; events: ScheduleEvent[]; today: string }) {
-  const [selected, setSelected] = useState(days.some(day => day.date === today) ? today : (days.find(day => day.date >= minimumDate)?.date ?? days[0].date));
+export function ScheduleGrid({ days, events, today, booking, minimumDate, focusDate, initialView, focusNow, initialNow }: { focusDate?:string; initialView:"day"|"week"; focusNow:boolean; initialNow:string; booking: CalendarBookingOptions; minimumDate: string; days: { date: string; label: string }[]; events: ScheduleEvent[]; today: string }) {
+  const [selected, setSelected] = useState(focusDate && days.some(day=>day.date===focusDate) ? focusDate : days.some(day => day.date === today) ? today : (days.find(day => day.date >= minimumDate)?.date ?? days[0].date));
   const active = days.some(day => day.date === selected) ? selected : days[0].date;
+  const router=useRouter();
+  const [view,setView]=useState(initialView);
+  const [clock,setClock]=useState(()=>new Date(initialNow));
+  useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),60000);return ()=>clearInterval(timer);},[]);
+  const clockDate=getLabDateKey(clock);
+  const minute=(value:Date)=>{const [hour,min]=getLabTimeKey(value).split(":").map(Number);return hour*60+min;};
+  function scrollHour(minutes:number) {scroll.current?.scrollTo({top:Math.max(0,minutes*.8-48),behavior:"smooth"});}
+  function goToday() {
+    const now=new Date(), date=getLabDateKey(now);
+    setClock(now);
+    if(days.some(day=>day.date===date)) {setSelected(date);scrollHour(minute(now));}
+    router.push(`/?date=${date}&view=${view}&focus=now#lab-calendar`,{scroll:false});
+  }
+  function navigate(direction:number) {
+    const date=shiftDateString(active,direction*(view==="day"?1:7));
+    router.push(`/?date=${date}&view=${view}#lab-calendar`,{scroll:false});
+  }
   const [draft, setDraft] = useState<BookingDraft | null>(null);
   const openBooking = useCallback((value: BookingDraft) => setDraft(value), []);
   const drag = useScheduleDrag(events, minimumDate, openBooking);
@@ -20,7 +40,7 @@ export function ScheduleGrid({ days, events, today, booking, minimumDate }: { bo
     const position = () => {
       // Streaming/hydration can run before styles give the track its final height.
       if (!positioned && element.clientHeight > 0 && element.scrollHeight >= 1152) {
-        element.scrollTop = 8 * 48;
+        element.scrollTop = focusNow ? Math.max(0,minute(new Date())*.8-48) : 8 * 48;
         positioned = true;
       }
     };
@@ -32,8 +52,22 @@ export function ScheduleGrid({ days, events, today, booking, minimumDate }: { bo
     window.addEventListener("pageshow", restore);
     position();
     return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener("pageshow", restore); };
-  }, [firstDate]);
-  return <div className={`schedule-interaction${drag.preview ? " is-dragging" : ""}`} onPointerDownCapture={drag.onPointerDownCapture} onClickCapture={drag.onClickCapture}>
+  }, [firstDate, focusNow]);
+  return <div className={`schedule-interaction${view==="day" ? " is-day-view" : ""}${drag.preview ? " is-dragging" : ""}`} onKeyDown={e=>{
+    if(e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !(e.target instanceof Element) || e.target.closest("input,textarea,select,dialog,[contenteditable=true]")) return;
+    if(e.key.toLowerCase()==="t") {e.preventDefault();goToday();}
+    if(e.key==="PageUp" && (view==="day" ? active>today : booking.week>0)) {e.preventDefault();navigate(-1);}
+    if(e.key==="PageDown" && booking.week<156) {e.preventDefault();navigate(1);}
+  }} onPointerDownCapture={drag.onPointerDownCapture} onClickCapture={drag.onClickCapture}>
+    <div className="schedule-navigation">
+      <nav aria-label="Calendar navigation">
+        <button type="button" className="button button-secondary button-small" title="Go to today (T)" onClick={goToday}>Today</button>
+        <button type="button" className="button button-ghost button-small" aria-label={`Previous ${view}`} title="Previous (Page Up)" disabled={view==="day" ? active<=today : booking.week<=0} onClick={()=>navigate(-1)}>‹</button>
+        <button type="button" className="button button-ghost button-small" aria-label={`Next ${view}`} title="Next (Page Down)" disabled={booking.week>=156} onClick={()=>navigate(1)}>›</button>
+      </nav>
+      <CalendarDialog title="Go to date" label={`${formatDateKeyLong(view==="day" ? active : firstDate)}${view==="week" ? ` – ${formatDateKeyLong(days[6].date)}` : ""} ▾`} triggerTitle="Choose a date" triggerClassName="schedule-range"><form action="/#lab-calendar" className="form-grid"><input type="hidden" name="view" value={view}/><label>Go to date<input type="date" name="date" defaultValue={active} min={today} max={shiftDateString(firstDate,(156-booking.week)*7+6)} required /></label><button className="button button-primary">Go</button></form></CalendarDialog>
+      <div className="schedule-view-tools"><button type="button" className="button button-ghost button-small" title="Scroll back to 8 am" onClick={()=>scroll.current?.scrollTo({top:384,behavior:"smooth"})}>8 am</button><select className="schedule-view-select" aria-label="Calendar view" value={view} onChange={e=>{const next=e.target.value as "day"|"week";setView(next);router.replace(`/?date=${active}&view=${next}#lab-calendar`,{scroll:false});}}><option value="week">Week</option><option value="day">Day</option></select><Link className="schedule-master" href="/instruments#reservation-calendar">All instruments ↗</Link></div>
+    </div>
     {(drag.pending || drag.message) && <p role="status" className="schedule-message">{drag.pending ? "Rescheduling…" : drag.message}</p>}
     <div className="schedule-day-picker" role="group" aria-label="Choose calendar day">{days.map(day => <button type="button" key={day.date} aria-pressed={active === day.date} onClick={() => setSelected(day.date)}><span>{day.label.slice(0, 3)}</span><strong>{Number(day.date.slice(-2))}</strong></button>)}</div>
     <div className="schedule-grid schedule-dates">
@@ -69,6 +103,7 @@ export function ScheduleGrid({ days, events, today, booking, minimumDate }: { bo
           }
           return <div key={day.date} className={`schedule-day${day.date === active ? " is-selected" : ""}${day.date === today ? " is-today" : ""}`}>
             <div className="schedule-track" data-track-date={day.date}>
+              {day.date===clockDate && <div className="schedule-now-line" style={{top:minute(clock)*.8}} aria-label={`Current time ${getLabTimeKey(clock)}`}><span>{getLabTimeKey(clock)}</span></div>}
               {Array.from({ length: 48 }, (_, slot) => {
                 const time = `${String(Math.floor(slot / 2)).padStart(2, "0")}:${slot % 2 ? "30" : "00"}`;
                 return <button key={slot} type="button" className="schedule-empty-slot" data-slot-date={day.date} data-slot={slot} style={{ top: slot * 24 }} aria-label={`New reservation ${day.date} ${time}`} disabled={day.date < minimumDate} onClick={() => openBooking({ date: day.date, time })} />;

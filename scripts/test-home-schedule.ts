@@ -19,3 +19,14 @@ console.log("PASS: Winter 2027 launch, navigation bounds, elapsed slots, Pacific
 assert.equal(getStartOfLabWeekDateKey(new Date("2027-01-10T20:00:00Z")), "2027-01-10");
 assert.equal(getStartOfLabWeekDateKey(new Date("2027-01-09T20:00:00Z")), "2027-01-03");
 assert.equal(isUpcomingSafetySlot("2027-01-08", "09:00", beforeLaunch), true);
+
+// Viewing Today before launch must not change the separate booking boundary.
+import {calendarNavigationWeek} from "../src/lib/calendar-navigation";
+assert.equal(calendarNavigationWeek("2026-11-20",undefined,beforeLaunch),0);
+assert.equal(calendarNavigationWeek(undefined,undefined,beforeLaunch),minimumHomeWeek(beforeLaunch));
+assert.equal(calendarNavigationWeek(undefined,"0",beforeLaunch),0);
+assert.equal(calendarNavigationWeek("2027-02-30",undefined,beforeLaunch),minimumHomeWeek(beforeLaunch));
+assert.equal(calendarNavigationWeek("2027-01-18",undefined,beforeLaunch),9);
+assert.equal(calendarNavigationWeek(undefined,"999",beforeLaunch),156);
+assert.equal(calendarNavigationWeek("2026-01-01",undefined,beforeLaunch),0);
+console.log("PASS: Today before launch, explicit week navigation, real-date validation and range limits.");
