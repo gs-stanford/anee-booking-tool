@@ -1,3 +1,4 @@
+import { academicCalendarForDate } from "@/lib/academic-calendar";
 import { calendarInviteRecipients, calendarInvitationsEnabled } from "@/lib/calendar-invitations";
 import { teamsConfigured } from "@/lib/outlook";
 import { CalendarMoveForm } from "@/components/calendar-move-form";
@@ -44,6 +45,11 @@ export async function HomeCalendar({ user, week }: { user: CalendarUser; week: n
   const events: ScheduleEvent[] = [];
   const minute = (value: Date) => { const [hour, min] = getLabTimeKey(value).split(":").map(Number); return hour * 60 + min; };
   for (const [index, { date }] of days.entries()) {
+    for (const entry of academicCalendarForDate(date)) events.push({
+      id:`academic-${entry.start}-${entry.title}`, date, start:0, end:1440, allDay:true,
+      title:`${entry.title}${entry.projected ? " (projected)" : ""}`, person:"", kind:"academic",
+      content:<div className="form-grid"><p>{entry.note}</p><p>{formatDateKeyLong(entry.start)}{entry.end!==entry.start ? ` – ${formatDateKeyLong(entry.end)}` : ""}</p><p>Reservations and safety signups remain available.</p><a href={entry.source} target="_blank" rel="noopener noreferrer">Stanford calendar source ↗</a></div>
+    });
     const dayStart = parseLabDateTime(date, "00:00");
     const dayEnd = parseLabDateTime(shiftDateString(date, 1), "00:00");
     if (index > 0 && index < 6) for (const time of ["09:00", "18:00"]) {

@@ -1600,3 +1600,9 @@ details.safety-slot { display: block; padding: 0; }
 
 .schedule-event-safety-taken { background: #e1f3e7; border-color: #278348; color: #165d30; }
 .schedule-event-meeting { background: #e7effb; border-color: #4176b6; color: #244d80; }
+
+/* Informational academic dates share the all-day strip; they never occupy hours. */
+.schedule-event-academic { background: #f0f1f2; border-color: #92979c; color: #42464a; }
+.schedule-event-academic strong { white-space: normal; font-weight: 500; }
+.schedule-all-day .schedule-day:has(.schedule-event-academic) { padding-bottom: 18px; }
+.schedule-all-day .schedule-day:has(.schedule-event-academic) > .schedule-all-day-add { top: auto; height: 18px; }
